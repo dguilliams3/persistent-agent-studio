@@ -1,0 +1,776 @@
+/**
+ * Global Styles — Steel-Blue Design System
+ *
+ * @module styles/index.css
+ * @description CSS custom properties and utility classes.
+ *
+ * Palette: steel-blue warmth per SPEC_v1 (RUN-20260320-1900).
+ * "Breathing dark" — cozy dim lighting, not a server rack.
+ *
+ * The canonical token values live in packages/ui/src/tokens.css.
+ * This file:
+ * 1. Provides backward-compat RGB triplet vars for legacy classes
+ * 2. Defines utility classes (.card, .btn-*, .input, .badge-*)
+ * 3. Bridges --ui-* namespace for @persistence/ui shared components
+ *
+ * @antipattern Do NOT let the palette drift darker. Background is #252830.
+ * @antipattern Do NOT use raw hex colors in new code — reference tokens.
+ *
+ * @upstream Called by: main.jsx (imported as global styles)
+ * @downstream Calls: Tailwind CSS framework
+ */
+
+@import '../../packages/ui/src/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   CSS CUSTOM PROPERTIES
+   =============================================================================
+   Define all design tokens as CSS variables for:
+   1. Tailwind integration (rgb triplets for alpha support)
+   2. Easy theming (change values in one place)
+   3. Runtime modification (JS can update these)
+   ============================================================================= */
+
+@layer base {
+  :root {
+    /* =========================================================================
+       STEEL-BLUE TOKEN SYSTEM
+       =========================================================================
+       Canonical values imported from packages/ui/src/tokens.css via @import
+       at the top of this file. Only web-specific extras defined here.
+       ========================================================================= */
+
+    /* Overlay tokens — used in MediaView, IconRail, and other overlay contexts */
+    --overlay-medium: rgba(0, 0, 0, 0.4);
+    --overlay-heavy: rgba(0, 0, 0, 0.6);
+
+    /* =========================================================================
+       BACKWARD-COMPAT RGB TRIPLET VARS (LEGACY)
+       =========================================================================
+       Legacy classes (.card, .btn-*, .badge-*, etc.) use rgb(var(--name))
+       pattern which requires RGB triplets. These map the old Neural Observatory
+       names to steel-blue-equivalent values.
+
+       MIGRATION NOTE: New components should use hex-based tokens directly
+       (e.g., var(--surface), var(--accent)). These RGB triplets exist only
+       for the legacy utility classes below. When those classes are removed,
+       these vars can be deleted too.
+       ========================================================================= */
+    --void:     29, 26, 23;     /* #1d1a17 — maps to --background (warm charcoal) */
+    --abyss:    40, 36, 32;     /* #282420 — maps to --surface */
+    --depth:    51, 46, 40;     /* #332e28 — maps to --surface-raised */
+    /* --surface stays as hex above; legacy classes needing RGB use --abyss */
+
+    --accent-dim:   217, 119, 87;   /* #d97757 — maps to --accent (terracotta) */
+    --accent-glow:  224, 138, 109;  /* #e08a6d — maps to --accent-hover */
+    --secondary:    217, 161, 63;   /* #d9a13f — maps to --warning */
+
+    --border-strong: 63, 57, 49;    /* #3f3931 — maps to --border */
+
+    --info: 217, 119, 87;          /* same as accent */
+
+    /* Legacy meter RGB triplets for old meter-bar classes */
+    --meter-low:  224, 160, 80;    /* amber */
+    --meter-mid:  80, 120, 168;    /* accent */
+    --meter-high: 80, 192, 128;    /* green */
+
+    /* =========================================================================
+       BORDER RADIUS
+       ========================================================================= */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* =========================================================================
+       SHADOWS — steel-blue tinted
+       ========================================================================= */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 20px rgba(80, 120, 168, 0.15);
+
+    /* =========================================================================
+       ANIMATION TOKENS — 200ms default per SPEC_v1
+       ========================================================================= */
+    --duration-fast:   150ms;
+    --duration-normal: 200ms;
+    --duration-slow:   300ms;
+
+    --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --breath-duration: 3s;
+
+    /* Spacing */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 0.75rem;
+    --spacing-lg: 1rem;
+    --spacing-xl: 1.5rem;
+
+    /* =========================================================================
+       GLOW CONFIGURATION
+       ========================================================================= */
+    --glow-intensity: 0.15;
+    --glow-spread: 20px;
+    --glow-color: 80, 120, 168;  /* RGB triplet for rgba() usage */
+    --mesh-opacity: 0.15;
+
+    /* =========================================================================
+       ENTRANCE ANIMATION TIMING
+       ========================================================================= */
+    --entrance-duration: 0.4s;
+    --entrance-stagger: 80ms;
+
+    /* =========================================================================
+       UI TOKEN BRIDGE — maps to @persistence/ui --ui-* namespace
+       ========================================================================= */
+    --ui-background: var(--background);
+    --ui-surface: var(--surface);
+    --ui-surface-elevated: var(--surface-raised);
+    --ui-surface-hover: var(--surface-raised);
+    --ui-accent: var(--accent);
+    --ui-accent-dim: var(--accent);
+    --ui-text-primary: var(--text-primary);
+    --ui-text-secondary: var(--text-secondary);
+    --ui-text-muted: var(--text-muted);
+    --ui-border: var(--border-subtle);
+    --ui-border-strong: var(--border);
+    --ui-success: var(--success);
+    --ui-warning: var(--warning);
+    --ui-danger: var(--danger);
+    --ui-spacing-xs: 0.25rem;
+    --ui-spacing-sm: 0.5rem;
+    --ui-spacing-md: 0.75rem;
+    --ui-spacing-lg: 1rem;
+    --ui-spacing-xl: 1.5rem;
+    --ui-radius-sm: var(--radius-sm);
+    --ui-radius-md: var(--radius-md);
+    --ui-radius-lg: var(--radius-lg);
+    --ui-duration-fast: var(--duration-fast);
+    --ui-duration-normal: var(--duration-normal);
+  }
+
+  /* ===========================================================================
+     BASE STYLES
+     =========================================================================== */
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border);
+  }
+
+  /* Text selection */
+  ::selection {
+    background-color: rgba(80, 120, 168, 0.3);
+    color: var(--text-primary);
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* =============================================================================
+   COMPONENT UTILITY CLASSES
+   =============================================================================
+   Reusable component patterns built on the design system.
+   Use these instead of repeating raw Tailwind classes.
+   ============================================================================= */
+
+@layer components {
+  /* ===========================================================================
+     CARD VARIANTS
+     ===========================================================================
+     .card - Standard container (abyss elevation)
+     .card-elevated - Higher elevation (depth)
+     .card-highlighted - Accent border with glow effect
+     =========================================================================== */
+  .card {
+    background-color: rgb(var(--abyss));
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-elevated {
+    background-color: rgb(var(--depth));
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
+
+  .card-highlighted {
+    background-color: rgb(var(--abyss));
+    border: 2px solid rgb(var(--accent) / 0.3);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* ===========================================================================
+     BUTTON VARIANTS
+     ===========================================================================
+     .btn - Base button styles (apply to all buttons)
+     .btn-primary - Main action button (cyan accent)
+     .btn-secondary - Secondary action (subtle background)
+     .btn-ghost - Minimal/text button (transparent)
+     .btn-danger - Destructive action (red)
+     .btn-success - Positive action (green)
+     =========================================================================== */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150;
+    background-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-primary:hover {
+    background-color: var(--accent-hover);
+    box-shadow: var(--shadow-md);
+  }
+  .btn-primary:active {
+    background-color: var(--accent-active);
+    transform: scale(0.98);
+  }
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-md);
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150;
+    background-color: rgb(var(--depth));
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+  }
+  .btn-secondary:hover {
+    background-color: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn-secondary:active {
+    background-color: var(--accent-soft);
+  }
+  .btn-secondary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150 bg-transparent;
+    color: var(--text-secondary);
+  }
+  .btn-ghost:hover {
+    background-color: var(--accent-soft);
+    color: var(--accent);
+  }
+  .btn-ghost:active {
+    background-color: var(--accent-soft);
+  }
+  .btn-ghost:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150 text-white;
+    background-color: rgb(var(--danger));
+  }
+  .btn-danger:hover {
+    background-color: rgb(var(--danger) / 0.85);
+  }
+
+  .btn-success {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-150 text-black;
+    background-color: rgb(var(--success));
+  }
+  .btn-success:hover {
+    background-color: rgb(var(--success) / 0.85);
+  }
+
+  /* ===========================================================================
+     MOBILE-FRIENDLY TOUCH TARGETS
+     Apple HIG recommends 44x44px minimum touch targets
+     =========================================================================== */
+
+  .btn-touch {
+    @apply min-h-[44px] min-w-[44px] px-4 py-3;
+  }
+
+  .btn-sm-touch {
+    @apply min-h-[44px] px-3 py-2 text-sm;
+  }
+
+  .input-touch {
+    @apply w-full px-4 py-3 text-base;
+  }
+
+  .checkbox-touch {
+    @apply relative flex items-center justify-center w-11 h-11 -m-2;
+  }
+
+  .checkbox-touch input[type="checkbox"] {
+    @apply w-5 h-5 cursor-pointer;
+  }
+
+  .range-touch {
+    @apply h-2 cursor-pointer;
+  }
+
+  .range-touch::-webkit-slider-thumb {
+    @apply w-6 h-6 rounded-full;
+    background-color: rgb(var(--accent));
+    -webkit-appearance: none;
+  }
+
+  .range-touch::-moz-range-thumb {
+    @apply w-6 h-6 rounded-full border-0;
+    background-color: rgb(var(--accent));
+  }
+
+  /* ===========================================================================
+     RESPONSIVE UTILITIES
+     =========================================================================== */
+
+  .hidden-mobile {
+    @apply hidden sm:block;
+  }
+
+  .mobile-only {
+    @apply block sm:hidden;
+  }
+
+  .mobile-stack {
+    @apply flex flex-col sm:flex-row;
+  }
+
+  .mobile-full {
+    @apply w-full sm:w-auto;
+  }
+
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* ===========================================================================
+     INPUT VARIANTS
+     =========================================================================== */
+  /* Phase 7d: Solid input backgrounds - use depth for better visibility */
+  .input {
+    @apply w-full px-3 py-2 rounded-md transition-all duration-150 outline-none;
+    background-color: rgb(var(--depth));
+    border: 1px solid rgb(var(--border-strong));
+    color: rgb(var(--text-primary));
+  }
+  .input::placeholder {
+    color: rgb(var(--text-muted));
+  }
+  .input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .input-sm {
+    @apply px-2 py-1 text-sm rounded-md transition-all duration-150 outline-none;
+    background-color: rgb(var(--depth));
+    border: 1px solid rgb(var(--border-strong));
+    color: rgb(var(--text-primary));
+  }
+  .input-sm::placeholder {
+    color: rgb(var(--text-muted));
+  }
+  .input-sm:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  /* iOS white-box native control fix (tokened, dark color-scheme) */
+  :root {
+    color-scheme: dark;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    background-color: rgb(var(--depth));
+    border: 1px solid rgb(var(--border-strong));
+    color: rgb(var(--text-primary));
+    border-radius: 0.375rem;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--text-muted));
+  }
+
+  /* ===========================================================================
+     BADGE VARIANTS
+     =========================================================================== */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    background-color: rgb(var(--success) / 0.2);
+    color: rgb(var(--success));
+    border: 1px solid rgb(var(--success) / 0.3);
+  }
+
+  .badge-warning {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    background-color: rgb(var(--warning) / 0.2);
+    color: rgb(var(--warning));
+    border: 1px solid rgb(var(--warning) / 0.3);
+  }
+
+  .badge-danger {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    background-color: rgb(var(--danger) / 0.2);
+    color: rgb(var(--danger));
+    border: 1px solid rgb(var(--danger) / 0.3);
+  }
+
+  .badge-info {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    background-color: rgb(var(--accent) / 0.2);
+    color: rgb(var(--accent));
+    border: 1px solid rgb(var(--accent) / 0.3);
+  }
+
+  /* ===========================================================================
+     TYPOGRAPHY UTILITIES
+     =========================================================================== */
+  .section-header {
+    @apply text-xs tracking-wider font-medium uppercase;
+    color: rgb(var(--text-muted));
+  }
+
+  .text-display {
+    font-family: 'Instrument Serif', 'Georgia', serif;
+  }
+
+  .text-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  /* ===========================================================================
+     STAT CARD
+     =========================================================================== */
+  .stat-card {
+    @apply p-4 rounded-lg;
+    background-color: rgb(var(--abyss));
+    border: 1px solid var(--border-subtle);
+  }
+
+  .stat-value {
+    @apply text-2xl font-mono font-semibold;
+    color: rgb(var(--text-primary));
+  }
+
+  .stat-label {
+    @apply text-xs tracking-wide uppercase;
+    color: rgb(var(--text-muted));
+  }
+
+  /* ===========================================================================
+     METER COMPONENTS
+     ===========================================================================
+     For the breathing meter bars in the Neural Observatory design
+     =========================================================================== */
+  .meter-container {
+    @apply relative overflow-hidden rounded-full;
+    background-color: rgb(var(--void));
+    height: 8px;
+  }
+
+  .meter-bar {
+    @apply h-full rounded-full transition-all;
+    transition-duration: var(--duration-slow);
+  }
+
+  .meter-bar-low {
+    background-color: rgb(var(--meter-low));
+  }
+
+  .meter-bar-mid {
+    background-color: rgb(var(--meter-mid));
+  }
+
+  .meter-bar-high {
+    background-color: rgb(var(--meter-high));
+  }
+
+  .meter-breathing {
+    animation: breathe var(--breath-duration) ease-in-out infinite;
+  }
+
+  /* ===========================================================================
+     GLOW EFFECTS - DRY: All glows use CSS variables
+     ===========================================================================
+     Usage:
+       .glow-accent - Standard accent glow (cards, buttons)
+       .glow-subtle - Lighter glow (backgrounds, passive elements)
+       .glow-intense - Strong glow (active states, hero elements)
+       .text-glow - Text shadow glow for headings
+       .glow-accent-hover - Glow on hover only
+     =========================================================================== */
+  .glow-accent {
+    box-shadow: 0 0 var(--glow-spread) rgba(var(--glow-color) / var(--glow-intensity));
+  }
+
+  .glow-subtle {
+    box-shadow: 0 0 30px rgba(var(--glow-color) / 0.08);
+  }
+
+  .glow-intense {
+    box-shadow: 0 0 40px rgba(var(--glow-color) / 0.25);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px rgba(var(--glow-color) / 0.5);
+  }
+
+  .glow-accent-hover {
+    transition: box-shadow var(--duration-normal) var(--ease-out);
+  }
+  .glow-accent-hover:hover {
+    box-shadow: 0 0 30px rgba(var(--glow-color) / 0.25);
+  }
+
+  /* ===========================================================================
+     HOVER MICRO-INTERACTIONS
+     ===========================================================================
+     Usage:
+       .hover-lift - Subtle lift effect on hover (for cards, buttons)
+       .hover-card - Card-specific lift + glow (combines lift + glow-subtle)
+       .hover-glow - Glow intensifies on hover
+       .interactive - Combines lift + glow + cursor for clickable elements
+     =========================================================================== */
+  .hover-lift {
+    transition: transform var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+  .hover-lift:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .hover-card {
+    transition: transform var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-normal) var(--ease-out),
+                border-color var(--duration-normal) var(--ease-out);
+  }
+  .hover-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 20px rgba(var(--glow-color) / 0.1);
+    border-color: rgb(var(--accent) / 0.3);
+  }
+
+  .hover-glow {
+    transition: box-shadow var(--duration-normal) var(--ease-out);
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 25px rgba(var(--glow-color) / 0.2);
+  }
+
+  .interactive {
+    cursor: pointer;
+    transition: transform var(--duration-fast) var(--ease-out),
+                box-shadow var(--duration-normal) var(--ease-out);
+  }
+  .interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 15px rgba(var(--glow-color) / 0.15);
+  }
+  .interactive:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* ===========================================================================
+     BREATHING ANIMATION (keyframes defined in Tailwind config)
+     =========================================================================== */
+  @keyframes breathe {
+    0%, 100% {
+      opacity: 0.4;
+      transform: scale(0.85);
+      box-shadow: 0 0 8px rgba(80, 120, 168, 0.3);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+      box-shadow: 0 0 16px rgba(80, 120, 168, 0.8);
+    }
+  }
+
+  /* ===========================================================================
+     STAGGERED FADE-IN (for page load)
+     ===========================================================================
+     Usage:
+       .fade-in-stagger - Apply to parent, children auto-stagger
+       .animate-entrance - Single element entrance
+       .animate-entrance-delay-N - Manual delay control (1-8)
+     =========================================================================== */
+  .fade-in-stagger > * {
+    opacity: 0;
+    animation: fadeInUp var(--entrance-duration) var(--ease-out) forwards;
+  }
+
+  .fade-in-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .fade-in-stagger > *:nth-child(2) { animation-delay: calc(var(--entrance-stagger) * 1); }
+  .fade-in-stagger > *:nth-child(3) { animation-delay: calc(var(--entrance-stagger) * 2); }
+  .fade-in-stagger > *:nth-child(4) { animation-delay: calc(var(--entrance-stagger) * 3); }
+  .fade-in-stagger > *:nth-child(5) { animation-delay: calc(var(--entrance-stagger) * 4); }
+  .fade-in-stagger > *:nth-child(6) { animation-delay: calc(var(--entrance-stagger) * 5); }
+  .fade-in-stagger > *:nth-child(7) { animation-delay: calc(var(--entrance-stagger) * 6); }
+  .fade-in-stagger > *:nth-child(8) { animation-delay: calc(var(--entrance-stagger) * 7); }
+
+  /* Individual entrance animation for manual control */
+  .animate-entrance {
+    opacity: 0;
+    animation: fadeInUp var(--entrance-duration) var(--ease-out) forwards;
+  }
+
+  .animate-entrance-delay-1 { animation-delay: calc(var(--entrance-stagger) * 1); }
+  .animate-entrance-delay-2 { animation-delay: calc(var(--entrance-stagger) * 2); }
+  .animate-entrance-delay-3 { animation-delay: calc(var(--entrance-stagger) * 3); }
+  .animate-entrance-delay-4 { animation-delay: calc(var(--entrance-stagger) * 4); }
+  .animate-entrance-delay-5 { animation-delay: calc(var(--entrance-stagger) * 5); }
+  .animate-entrance-delay-6 { animation-delay: calc(var(--entrance-stagger) * 6); }
+  .animate-entrance-delay-7 { animation-delay: calc(var(--entrance-stagger) * 7); }
+  .animate-entrance-delay-8 { animation-delay: calc(var(--entrance-stagger) * 8); }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ===========================================================================
+     TAB PILL NAVIGATION - Glow on active
+     =========================================================================== */
+  .tab-pill {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-all;
+    transition-duration: var(--duration-normal);
+  }
+
+  .tab-pill-active {
+    background-color: rgb(var(--accent) / 0.15);
+    color: rgb(var(--accent));
+    box-shadow: 0 0 20px rgba(var(--accent) / 0.2);
+  }
+
+  .tab-pill:not(.tab-pill-active) {
+    color: rgb(var(--text-muted));
+  }
+
+  .tab-pill:not(.tab-pill-active):hover {
+    color: rgb(var(--text-secondary));
+    background-color: rgb(var(--depth) / 0.5);
+  }
+
+  /* ===========================================================================
+     HERO STAT - For visually dominant stats
+     =========================================================================== */
+  .stat-hero {
+    @apply text-4xl font-mono font-bold;
+    color: rgb(var(--accent));
+    text-shadow: 0 0 30px rgba(var(--accent) / 0.4);
+  }
+
+  .stat-hero-label {
+    @apply text-xs tracking-widest uppercase;
+    color: rgb(var(--text-muted));
+  }
+}
+
+/* =============================================================================
+   GLOBAL KEYFRAMES (outside @layer for proper scope)
+   ============================================================================= */
+
+@keyframes breathe-global {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.breathing-dot {
+  animation: breathe-global 1.5s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(80, 120, 168, 0.6);
+}
+
+/* =============================================================================
+   SKELETON PULSE — shared animation for loading placeholders
+   Used by ChatView, MemoryView, MediaView skeleton states.
+   ============================================================================= */
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-pulse {
+    animation: none !important;
+    opacity: 0.5 !important;
+  }
+}
+
+/* =========================================================================
+   App shell root — dynamic viewport height (RUN-20260704-1520)
+   100vh on mobile includes the space behind browser chrome; the shell
+   overflowed the visible viewport and the page panned. dvh tracks the
+   actual visible area; the vh line is the fallback for older engines.
+   ========================================================================= */
+.app-shell-root {
+  height: 100vh;
+  height: 100dvh;
+}
+
+html, body {
+  overscroll-behavior: none;
+}

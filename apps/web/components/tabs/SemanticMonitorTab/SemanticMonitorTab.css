@@ -1,0 +1,141 @@
+/**
+ * Semantic Identity Monitor Tab Styles
+ *
+ * @module tabs/SemanticMonitorTab/SemanticMonitorTab.css
+ * @description Scoped styles for the SIM tab component.
+ *
+ * Uses the project's semantic color tokens (--color-*) and follows the
+ * surface elevation system. Minimal custom CSS - most styling is done
+ * via Tailwind utility classes in the JSX.
+ *
+ * Custom styles here are for:
+ * - Animation keyframes
+ * - Complex pseudo-element states
+ * - Responsive adjustments
+ */
+
+/* =============================================================================
+   Tab Container
+   ============================================================================= */
+
+.sim-tab {
+  min-height: 100%;
+}
+
+/* =============================================================================
+   Sub-Navigation
+   ============================================================================= */
+
+.sim-nav-tab {
+  position: relative;
+}
+
+/* Active indicator animation */
+.sim-nav-tab::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background-color 0.2s ease;
+}
+
+/* =============================================================================
+   View Content Area
+   ============================================================================= */
+
+.sim-view-content {
+  min-height: 300px;
+}
+
+/* Loading state for view transitions */
+.sim-view-content[data-loading='true'] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* =============================================================================
+   Status Bar
+   ============================================================================= */
+
+.sim-status-bar {
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================================================
+   Chart Animations
+   ============================================================================= */
+
+/* Fade-in for trajectory points */
+@keyframes sim-point-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sim-trajectory-point {
+  animation: sim-point-fade-in 0.3s ease-out forwards;
+  transform-origin: center;
+}
+
+/* Pulse animation for outlier indicators */
+@keyframes sim-outlier-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.sim-outlier-indicator {
+  animation: sim-outlier-pulse 2s ease-in-out infinite;
+}
+
+/* =============================================================================
+   Responsive Adjustments
+   ============================================================================= */
+
+/* Stack views vertically on mobile */
+@media (max-width: 768px) {
+  .sim-tab {
+    padding: 1rem;
+  }
+
+  .sim-nav-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .sim-nav-tab .lucide {
+    width: 14px;
+    height: 14px;
+  }
+
+  .sim-status-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
+
+/* =============================================================================
+   Dark Mode Adjustments
+   ============================================================================= */
+
+/* Ensure chart grid lines are visible in dark mode */
+.dark .sim-chart-grid-line {
+  stroke: rgba(255, 255, 255, 0.1);
+}
+
+/* Threshold reference line visibility */
+.dark .sim-threshold-line {
+  stroke: rgba(239, 68, 68, 0.5);
+}

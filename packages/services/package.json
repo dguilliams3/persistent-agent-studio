@@ -1,0 +1,69 @@
+{
+  "name": "@persistence/services",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Capability-based external service integrations: TTS, STT, image generation, messaging, search",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tts": {
+      "import": "./dist/tts/index.js",
+      "types": "./dist/tts/index.d.ts"
+    },
+    "./stt": {
+      "import": "./dist/stt/index.js",
+      "types": "./dist/stt/index.d.ts"
+    },
+    "./image_generation": {
+      "import": "./dist/image_generation/index.js",
+      "types": "./dist/image_generation/index.d.ts"
+    },
+    "./messaging": {
+      "import": "./dist/messaging/index.js",
+      "types": "./dist/messaging/index.d.ts"
+    },
+    "./messaging/telegram": {
+      "import": "./dist/messaging/telegram/index.js",
+      "types": "./dist/messaging/telegram/index.d.ts"
+    },
+    "./search": {
+      "import": "./dist/search/index.js",
+      "types": "./dist/search/index.d.ts"
+    },
+    "./core": {
+      "import": "./dist/core/index.js",
+      "types": "./dist/core/index.d.ts"
+    },
+    "./web-agent": {
+      "import": "./dist/web-agent/index.js",
+      "types": "./dist/web-agent/index.d.ts"
+    },
+    "./embedding": {
+      "import": "./dist/embedding/index.js",
+      "types": "./dist/embedding/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@persistence/core": "workspace:*",
+    "@persistence/db": "workspace:*",
+    "@persistence/media": "workspace:*",
+    "@persistence/tools": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  }
+}

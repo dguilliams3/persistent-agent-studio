@@ -1,0 +1,12 @@
+# Voice Prosody Modal App Dependencies
+# Note: These are installed in the Modal container image, not locally
+
+whisperx>=3.1.1
+praat-parselmouth>=0.4.3  # NOT "parselmouth" - that's a different package!
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy>=1.24.0
+pydub>=0.25.1
+
+# Modal CLI (for deployment)
+modal>=1.0.0

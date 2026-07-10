@@ -1,0 +1,50 @@
+{
+  "name": "@persistence/memory",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Memory subsystem: summarization, RAG, tier management, context assembly",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./summarization": {
+      "import": "./dist/summarization/index.js",
+      "types": "./dist/summarization/index.d.ts"
+    },
+    "./rag": {
+      "import": "./dist/rag/index.js",
+      "types": "./dist/rag/index.d.ts"
+    },
+    "./sim/routes": {
+      "import": "./dist/sim/routes.js",
+      "types": "./dist/sim/routes.d.ts"
+    },
+    "./snapshot/routes": {
+      "import": "./dist/snapshot/routes.js",
+      "types": "./dist/snapshot/routes.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@persistence/core": "workspace:*",
+    "@persistence/db": "workspace:*",
+    "@persistence/embedding": "workspace:*",
+    "@persistence/llm": "workspace:*",
+    "@persistence/media": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.17"
+  }
+}

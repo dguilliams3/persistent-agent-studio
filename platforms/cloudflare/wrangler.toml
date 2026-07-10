@@ -1,0 +1,30 @@
+name = "claude-existence-loop"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "claude-loop"
+database_id = "YOUR_D1_DATABASE_ID"  # from `wrangler d1 create claude-loop`
+
+# Environment variables (set via wrangler secret)
+# ANTHROPIC_API_KEY - your Claude API key
+# DISCORD_WEBHOOK - your Discord webhook URL
+# PONY_STUDIO_URL - Pony Studio tunnel URL (e.g., https://your-pony-studio.example.com)
+# PONY_USERNAME - Pony Studio admin username
+# PONY_PASSWORD - Pony Studio admin password
+
+# Cron trigger - runs every minute, worker checks if interval has elapsed
+[triggers]
+crons = ["* * * * *"]
+
+# Workers AI binding for image generation
+[ai]
+binding = "AI"
+
+# R2 bucket for media storage (GIFs, large images)
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "claude-loop-media"

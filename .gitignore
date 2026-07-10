@@ -1,0 +1,73 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+packages/*/dist/
+*.tsbuildinfo
+
+# TypeScript build artifacts (prevent leaking into src/)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+
+# Coverage reports
+coverage/
+
+# Cloudflare Wrangler
+.wrangler/
+.mf/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Modal CLI credentials (token_id/token_secret) — never commit these
+.modal.toml
+**/.modal.toml
+
+# Temp files from Claude/AI sessions
+tmpclaude-*
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary JSON files
+tmp_*.json
+context_temp.json
+
+# Wrangler cache
+wrangler-account.json
+cf.json
+archive/claude-state-2026-01-09T14-19-23.json
+
+# Test outputs (PONY image generation tests)
+scripts/test_outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+outputs/gpt_test_summaries/*
+CLAUDE.local.md

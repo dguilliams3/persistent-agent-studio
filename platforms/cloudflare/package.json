@@ -1,0 +1,31 @@
+{
+  "name": "claude-existence-loop-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "db:init": "wrangler d1 execute claude-loop --file=schema.sql",
+    "db:query": "wrangler d1 execute claude-loop --command",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
+  },
+  "dependencies": {
+    "@persistence/db": "workspace:*",
+    "@persistence/llm": "workspace:*",
+    "@persistence/memory": "workspace:*",
+    "@persistence/services": "workspace:*",
+    "gpt-tokenizer": "^3.4.0",
+    "jpeg-js": "^0.4.4",
+    "upng-js": "^2.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260317.1",
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "typescript-eslint": "^8.62.1"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "no-undef": 33,
+  "@typescript-eslint/no-explicit-any": 329,
+  "no-unused-vars": 348,
+  "@typescript-eslint/no-unused-vars": 56,
+  "no-empty": 4,
+  "@typescript-eslint/no-empty-object-type": 1,
+  "eqeqeq": 19,
+  "@typescript-eslint/ban-ts-comment": 4,
+  "no-useless-escape": 2
+}
