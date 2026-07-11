@@ -73,6 +73,15 @@
 
     --info: 217, 119, 87;          /* same as accent */
 
+    /* Status triplets — consumed by .btn-success/.btn-danger and the badge
+       classes below. These were dropped in the warm-palette migration while
+       the classes that consume them survived: rgb(var(--success)) with an
+       undefined var computes to nothing, so the paused-state Start button
+       rendered black-on-dark. Values stay in the warm family. */
+    --success: 80, 192, 128;   /* mint — same green as --meter-high */
+    --danger:  217, 99, 79;    /* warm red, kin to the terracotta accent */
+    --warning: 217, 161, 63;   /* amber — same as --secondary */
+
     /* Legacy meter RGB triplets for old meter-bar classes */
     --meter-low:  224, 160, 80;    /* amber */
     --meter-mid:  80, 120, 168;    /* accent */
