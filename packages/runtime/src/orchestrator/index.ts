@@ -78,11 +78,32 @@ export async function runThinkingCycle(
 ): Promise<OrchestratorResult> {
   const { db, callbacks } = config;
 
+  // --- Quick-followup PEEK ---
+  // A pending quick_followup_at (the Think Now button, cache primes, search
+  // follow-ups) must bypass the interval guard — but if guards run first, the
+  // cycle returns "Interval not elapsed" before the flag is ever read, making
+  // /think-now a silent no-op that waits out the full cycle interval. Peek the
+  // flag WITHOUT consuming it and pass force to the interval guard (force
+  // bypasses ONLY the interval — running/sleep/batch guards still apply). The
+  // flag is consumed by checkQuickFollowup below only after all guards pass,
+  // so a genuinely blocked cycle does not swallow the user's Think Now.
+  let force = options.force;
+  if (options.fromCron && !force) {
+    const quickFollowupAt = await getState(db, "quick_followup_at");
+    if (quickFollowupAt && Date.now() >= new Date(quickFollowupAt).getTime()) {
+      force = true;
+    }
+  }
+
   // --- Guard checks ---
-  const guardResult = await runGuards(db, options, config.personaOptions);
+  const guardResult = await runGuards(
+    db,
+    { ...options, force },
+    config.personaOptions,
+  );
   if (guardResult) return guardResult;
 
-  // --- Quick followup bypass ---
+  // --- Quick followup bypass (consumes the flag) ---
   const quickFollowup = await checkQuickFollowup(db, options.fromCron);
 
   // --- Set last_wake_time early to prevent cron race conditions ---
