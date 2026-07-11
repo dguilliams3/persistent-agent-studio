@@ -36,9 +36,21 @@ export type ChatSegment =
   | { kind: 'actions'; entries: HistoryEntry[]; key: string }
   | { kind: 'day'; label: string; key: string };
 
+/**
+ * D1 stamps rows in UTC with no timezone marker ("YYYY-MM-DD HH:MM:SS").
+ * Parsing those bare strings with new Date() treats them as LOCAL time,
+ * displaying every timestamp shifted by the viewer's UTC offset (a 1 AM
+ * message read "5:05 AM" in EDT). Bare timestamps are parsed as UTC;
+ * strings that already carry a zone are respected.
+ */
+function parseDbTimestamp(timestamp: string): Date {
+  const iso = String(timestamp).replace(' ', 'T');
+  return new Date(/Z|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z');
+}
+
 /** "Today" / "Yesterday" / "Jun 20" (adds year when not this year). */
 function dayLabel(timestamp: string): string {
-  const date = new Date(String(timestamp).replace(' ', 'T'));
+  const date = parseDbTimestamp(timestamp);
   if (Number.isNaN(date.getTime())) return '';
   const now = new Date();
   const startOfDay = (d: Date) =>
@@ -57,7 +69,7 @@ function dayLabel(timestamp: string): string {
 
 /** Calendar-date key for grouping (local time). */
 function dateKey(timestamp: string): string {
-  const date = new Date(String(timestamp).replace(' ', 'T'));
+  const date = parseDbTimestamp(timestamp);
   if (Number.isNaN(date.getTime())) return '';
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }

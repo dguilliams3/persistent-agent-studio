@@ -12,12 +12,16 @@
 import { describe, it, expect } from 'vitest';
 import { segmentHistory, BUBBLE_TYPES } from '../segmentHistory';
 
-/** "YYYY-MM-DD HH:MM:SS" in local time, offset by N days from today. */
+/**
+ * Bare UTC stamp (DB convention) representing a LOCAL instant N days ago —
+ * matches how the worker writes rows and how parseDbTimestamp reads them.
+ */
 function stamp(daysAgo, time = '12:00:00') {
+  const [h, m, sec] = time.split(':').map(Number);
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${time}`;
+  d.setHours(h, m, sec, 0);
+  return d.toISOString().replace('T', ' ').slice(0, 19);
 }
 
 let nextId = 1;

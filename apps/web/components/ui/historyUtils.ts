@@ -248,9 +248,21 @@ export const SELECTABLE_TYPES = [
  * @param {string} timestamp - ISO timestamp
  * @returns {string} Formatted time (e.g., "2:34 PM" or "Jan 15, 2:34 PM")
  */
+/**
+ * D1 stamps rows in UTC with no timezone marker ("YYYY-MM-DD HH:MM:SS").
+ * Parsing those bare strings with new Date() treats them as LOCAL time,
+ * displaying every timestamp shifted by the viewer's UTC offset (a 1 AM
+ * message read "5:05 AM" in EDT). Bare timestamps are parsed as UTC;
+ * strings that already carry a zone are respected.
+ */
+export function parseDbTimestamp(timestamp: string): Date {
+  const iso = String(timestamp).replace(' ', 'T');
+  return new Date(/Z|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z');
+}
+
 export function formatTime(timestamp: any) {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
+  const date = parseDbTimestamp(String(timestamp));
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
 
