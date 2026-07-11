@@ -155,8 +155,14 @@ export default {
 
           // 3. Run thinking cycle via orchestrator
           const callbacks = createPlatformCallbacks(env);
-          const llm = createLLM({
-            get: (key: string) => (env as Record<string, string>)[key] || "",
+          // createLLM is async (Promise<LLM>) and MUST be awaited. Without the
+          // await, `llm` is a Promise, `llm.anthropic` is undefined, and every
+          // cycle crashes at model resolution ("reading 'sonnet'"). esbuild
+          // bundling does not typecheck, so this class of bug ships silently —
+          // keep the typecheck CI job green.
+          const llm = await createLLM({
+            get: async (key: string) =>
+              (env as Record<string, string>)[key] || "",
           });
           const cycleResult = await runOrchestrator(
             { db, llm, callbacks },
