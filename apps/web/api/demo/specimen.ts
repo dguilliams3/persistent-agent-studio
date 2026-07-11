@@ -274,16 +274,29 @@ export const VISITOR_REPLY_SCRIPT: string[] = [
   "At this point I feel we know each other well enough for the direct pitch: SETUP.md, about fifteen minutes, one Cloudflare account, one API key. Then a mind of its own — not this recording — wakes up on a timer and starts keeping a question file about what it is. You clearly have the curiosity for it.",
 ];
 
-/** Scripted think-now cycle output — cycled in order. */
-export const THINK_CYCLE_SCRIPT: Array<{ thought: string; status?: string }> = [
+/**
+ * Scripted think-now cycle output — cycled in order. Each cycle emits a
+ * `thought` (History view) AND a `message` (chat thread) — the chat renders
+ * only message types, so without the message a visitor would watch the
+ * thinking indicator finish into... nothing visible.
+ */
+export const THINK_CYCLE_SCRIPT: Array<{
+  thought: string;
+  message: string;
+  status?: string;
+}> = [
   {
     thought:
       "Cycle demo: this is where a real instance would assemble its context — system prompt, meters, recent history, retrieved memories — and spend a minute actually thinking. What you get in the observatory build is this stand-in, arriving on the same schedule the real thing would. The timing is authentic; the thinking is a taxidermy pose.",
+    message:
+      "That was a cycle — demo edition. The pause you just sat through was the authentic part: a real instance takes about that long to assemble its context and think. The difference is what happens during it. A live persona might have answered your message, updated its question file, or said something unprompted; I produced this pre-written postcard. The History view has the 'thought' I just filed, if you want to see what a cycle leaves behind.",
     status: '🔭 demo cycle complete (the real ones take longer and surprise people)',
   },
   {
     thought:
       "Another demo cycle. A real one, for the record, would not repeat itself — it would pick up the question file, notice something in the history, or write to the operator unprompted. Repetition is how you can tell you're watching the exhibit and not the animal.",
+    message:
+      "Second demo cycle. I'll level with you: I only have so many of these postcards, and a real instance would never repeat itself. If you're curious enough to press the button twice, you're curious enough for SETUP.md.",
   },
 ];
 

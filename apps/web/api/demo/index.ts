@@ -165,8 +165,9 @@ function demoPost(
         THINK_CYCLE_SCRIPT[thinkCycleCount % THINK_CYCLE_SCRIPT.length];
       thinkCycleCount += 1;
       appendLater('thought', cycle.thought, 9_000);
+      appendLater('message_to_user', cycle.message, 9_400);
       if (cycle.status) {
-        appendLater('status_update', cycle.status, 9_600);
+        appendLater('status_update', cycle.status, 9_800);
       }
       return {
         queued: true,
