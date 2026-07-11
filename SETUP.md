@@ -34,7 +34,28 @@ pnpm install
 cd platforms/cloudflare
 wrangler d1 create claude-loop
 # copy the printed database_id into your wrangler config ([[d1_databases]])
-wrangler d1 execute claude-loop --file=migration_*.sql   # apply migrations in order
+
+# Base schema FIRST (history, cold_storage, state, notebook...):
+wrangler d1 execute claude-loop --remote --file=schema.sql
+
+# Then the versioned migrations, in version order (sort -V handles v2 < v10):
+for f in $(ls migration_v*.sql | sort -V) migration_voice_history.sql; do
+  wrangler d1 execute claude-loop --remote --file="$f"
+done
+```
+
+> `--remote` matters: without it wrangler applies files to a local emulator DB,
+> and your deployed worker still sees an empty database. (The worker also
+> auto-creates a few runtime tables on first cron tick, but the base schema
+> above is required.)
+
+## 2b. Create the R2 media bucket
+
+`wrangler.toml` binds an R2 bucket for generated media. Create it before the
+first deploy or `wrangler deploy` fails on the missing binding:
+
+```bash
+wrangler r2 bucket create claude-loop-media
 ```
 
 ## 3. Set worker secrets
@@ -50,15 +71,22 @@ Set with `wrangler secret put <NAME>` from `platforms/cloudflare`.
 | `ADMIN_PASSWORD` | Login password — **use a strong one; it gates all writes** |
 | `JWT_SECRET` | Signs session tokens (any long random string) |
 
-### Optional — messaging channels (the integration-layer showcase)
+### Optional — messaging channels (bring your own adapter)
 
-| Secret | Purpose |
-| --- | --- |
-| `TELEGRAM_BOT_TOKEN` | Enables the Telegram adapter (bot command interface + streaming) |
-| `TELEGRAM_CHAT_ID` | Where the persona sends messages (your chat/channel id) |
-| `DISCORD_WEBHOOK` | Enables the Discord adapter (webhook delivery) |
+This distribution ships the **transport-agnostic messaging interface**
+(`packages/services/src/messaging/`) but no concrete Telegram/Discord adapter —
+the delivery call sites in the worker are documented no-ops
+(`platforms/cloudflare/src/services/index.ts`). The persona is fully usable
+through the web UI without any channel.
 
-Leave these unset and the persona simply doesn't deliver over that channel — the web UI still works.
+If you wire your own adapter through the interface, two conventions from the
+original integration are worth keeping:
+
+- The delivery chat/channel id is read from **D1 state** (key
+  `telegram_chat_id`), not from a worker secret — seed it with
+  `wrangler d1 execute claude-loop --remote --command="INSERT OR REPLACE INTO state (key, value) VALUES ('telegram_chat_id', '<id>')"`.
+- Bot tokens and webhook URLs belong in worker secrets
+  (`wrangler secret put <NAME>`), never in the repo.
 
 ### Optional — additional model providers (OpenAI-compatible)
 
@@ -93,12 +121,34 @@ wrangler deploy
 The frontend needs to know your worker's URL at build time via `VITE_WORKER_URL`:
 
 ```bash
-cd ..
+cd ../..    # back to the REPO ROOT — Vite builds there, not in platforms/
 VITE_WORKER_URL="https://<your-worker>.workers.dev" pnpm build
 wrangler pages deploy dist --project-name <your-pages-project>
 ```
 
-(If unset, the frontend falls back to a placeholder and won't reach your worker.)
+(If `VITE_WORKER_URL` is unset the app runs in **observatory demo mode** — a
+bundled synthetic specimen, useful for a look around but not connected to your
+worker.)
+
+## 6. Allow your frontend through CORS
+
+The worker rejects browser requests from unknown origins (`403 Origin not
+allowed`). After the Pages deploy, tell the worker your frontend's origin and
+redeploy it:
+
+```toml
+# platforms/cloudflare/wrangler.toml
+[vars]
+FRONTEND_ORIGIN = "https://<your-pages-project>.pages.dev"
+# or a comma-separated list:
+# CORS_ALLOWED_ORIGINS = "https://your-domain.com,https://<project>.pages.dev"
+```
+
+```bash
+cd platforms/cloudflare && wrangler deploy
+```
+
+`http://localhost:5173` is always allowed, so local dev works without this.
 
 ## Local development
 
@@ -114,7 +164,7 @@ action is literally `MESSAGE_USER`. Set your own name and that changes:
 
 ```bash
 # from platforms/cloudflare
-wrangler d1 execute claude-loop --command="INSERT OR REPLACE INTO state (key, value) VALUES ('human_name', 'YourName')"
+wrangler d1 execute claude-loop --remote --command="INSERT OR REPLACE INTO state (key, value) VALUES ('human_name', 'YourName')"
 ```
 
 Now the persona sees its action as `MESSAGE_YOURNAME` and addresses you by name. This is deliberate,
@@ -143,7 +193,7 @@ real data.
 
 ```bash
 wrangler tail                                              # live logs
-wrangler d1 execute claude-loop --command="SELECT * FROM state"   # inspect state
+wrangler d1 execute claude-loop --remote --command="SELECT * FROM state"   # inspect state
 ```
 
 ## Security notes

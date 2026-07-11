@@ -73,9 +73,18 @@ wrangler d1 create <D1_DATABASE_NAME>          # use their chosen name
 ```
 Paste the printed `database_id` into `platforms/cloudflare/wrangler.toml` (`[[d1_databases]]`,
 replacing the `YOUR_D1_DATABASE_ID` placeholder). Also set `database_name` and the worker `name`
-to their chosen values. Then apply migrations in order:
+to their chosen values. Then apply the base schema FIRST, followed by the versioned migrations in
+order (`--remote` is required — without it wrangler writes to a local emulator DB and the deployed
+worker sees an empty database):
 ```bash
-wrangler d1 execute <D1_DATABASE_NAME> --file=migration_*.sql
+wrangler d1 execute <D1_DATABASE_NAME> --remote --file=schema.sql
+for f in $(ls migration_v*.sql | sort -V) migration_voice_history.sql; do
+  wrangler d1 execute <D1_DATABASE_NAME> --remote --file="$f"
+done
+```
+Also create the R2 media bucket bound in wrangler.toml (deploy fails without it):
+```bash
+wrangler r2 bucket create claude-loop-media
 ```
 Confirm success; append the database_id (last 4 chars only in the log) and migration result.
 
@@ -110,11 +119,14 @@ Record the worker URL (`https://<WORKER_NAME>.<subdomain>.workers.dev`). Do a he
 
 The frontend needs the worker URL at build time:
 ```bash
-cd ..
+cd ../..   # REPO ROOT — Vite builds there, not in platforms/
 VITE_WORKER_URL="<worker-url>" pnpm build
 wrangler pages deploy dist --project-name <PAGES_PROJECT_NAME>
 ```
-Record the Pages URL. Confirm it loads and reaches the worker.
+Record the Pages URL. Then allow it through the worker's CORS gate: set `FRONTEND_ORIGIN` (or a
+comma-separated `CORS_ALLOWED_ORIGINS`) under `[vars]` in `platforms/cloudflare/wrangler.toml` to
+the Pages URL and `wrangler deploy` again. Confirm the UI loads and reaches the worker (a 403
+"Origin not allowed" means this step was missed).
 
 ---
 
@@ -123,7 +135,7 @@ Record the Pages URL. Confirm it loads and reaches the worker.
 1. **Your name** (peer framing): set `human_name` so the persona addresses you by name and its
    action becomes `MESSAGE_<YOURNAME>`:
    ```bash
-   wrangler d1 execute <D1_DATABASE_NAME> --command="INSERT OR REPLACE INTO state (key,value) VALUES ('human_name','<YourName>')"
+   wrangler d1 execute <D1_DATABASE_NAME> --remote --command="INSERT OR REPLACE INTO state (key,value) VALUES ('human_name','<YourName>')"
    ```
 2. **The persona** (name + voice): the persona's identity lives in its system prompt
    (`platforms/cloudflare/src/context.ts` and the persona's `system_prompt_template`). Guide the

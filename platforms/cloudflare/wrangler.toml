@@ -13,8 +13,8 @@ database_id = "YOUR_D1_DATABASE_ID"  # from `wrangler d1 create claude-loop`
 # ANTHROPIC_API_KEY - your Claude API key
 # DISCORD_WEBHOOK - your Discord webhook URL
 # PONY_STUDIO_URL - Pony Studio tunnel URL (e.g., https://your-pony-studio.example.com)
-# PONY_USERNAME - Pony Studio admin username
-# PONY_PASSWORD - Pony Studio admin password
+# PONY_STUDIO_USERNAME - Pony Studio admin username
+# PONY_STUDIO_PASSWORD - Pony Studio admin password
 
 # Cron trigger - runs every minute, worker checks if interval has elapsed
 [triggers]

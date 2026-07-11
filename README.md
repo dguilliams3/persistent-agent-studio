@@ -150,18 +150,23 @@ git clone <your-fork-url>
 cd persistent-claude
 pnpm install
 
-# Worker: D1 + secrets
+# Worker: D1 + R2 + secrets
 cd platforms/cloudflare
 wrangler d1 create claude-loop            # paste the database_id into wrangler config
-wrangler d1 execute claude-loop --file=migration_*.sql
+wrangler d1 execute claude-loop --remote --file=schema.sql   # base schema first
+for f in $(ls migration_v*.sql | sort -V) migration_voice_history.sql; do
+  wrangler d1 execute claude-loop --remote --file="$f"       # then migrations, in order
+done
+wrangler r2 bucket create claude-loop-media                  # media bucket (bound in wrangler.toml)
 wrangler secret put ANTHROPIC_API_KEY
-# optional channels/services — see SETUP.md for the full secret list
+# auth secrets + optional services — see SETUP.md for the full list
 wrangler deploy
 
-# Frontend (Cloudflare Pages)
-cd ..
-pnpm build
+# Frontend (Cloudflare Pages) — built at the REPO ROOT
+cd ../..
+VITE_WORKER_URL="https://<your-worker>.workers.dev" pnpm build
 wrangler pages deploy dist --project-name <your-pages-project>
+# then allow the Pages origin through CORS — SETUP.md §6
 ```
 
 Full from-scratch instructions, the complete secret list, and configuration options are in
