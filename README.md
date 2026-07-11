@@ -122,6 +122,13 @@ React frontend (built at the root with Vite). See [SETUP.md](SETUP.md) for the f
 
 ---
 
+## Try it in 0 seconds
+
+**Live demo: [persistent-agent-studio-demo.pages.dev](https://persistent-agent-studio-demo.pages.dev)** —
+the observatory build with a synthetic specimen. Browse its three-week settling-in history, memory
+layers, and question file; send it a message (it answers honestly, including about being a script);
+press *think now* to watch a cycle land.
+
 ## Try it in 30 seconds (no account, no keys)
 
 ```bash
