@@ -158,8 +158,11 @@ Full from-scratch instructions, the complete secret list, and configuration opti
 The loop's cost is dominated by re-reading the persona's context each cycle, so **prompt caching is
 the main lever** (cache reads are heavily discounted) and **batch mode** cuts off-hours cost. With
 caching + batching, a persona thinking on a multi-minute cadence runs from a few dollars a month
-(smaller models) up, depending on model and cadence. Cloudflare Workers/D1/Workers-AI free tiers
-cover the infrastructure at this scale. See Anthropic's current pricing for exact model rates.
+(smaller models) up, depending on model and cadence. As a concrete anchor: a mature persona with a
+rich context assembles ~50K input tokens per cycle, so an hourly cadence is roughly 1.2M input
+tokens/day at cache-miss rates — set **cycle interval** (below) to match your budget; it is the
+single biggest cost lever. Cloudflare Workers/D1/Workers-AI free tiers cover the infrastructure at
+this scale. See Anthropic's current pricing for exact model rates.
 
 ---
 
