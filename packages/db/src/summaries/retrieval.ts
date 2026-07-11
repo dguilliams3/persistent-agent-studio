@@ -25,7 +25,7 @@ import type { DrizzleD1 } from '../client';
 import { getActivePersonaId } from '../persona-scope';
 import { scopedSelect } from '../scoped-query';
 import { summaries } from '../schema/summaries';
-import { rowToSummary, type Summary, type SummaryRow } from './mappers';
+import { rowToSummary, toSummaryRow, type Summary, type SummaryRow } from './mappers';
 
 /**
  * @description Retrieves only ACTIVE (non-archived) summaries in tier-sorted order
@@ -56,6 +56,9 @@ export async function getActiveSummaries(db: DrizzleD1): Promise<Summary[]> {
       COALESCE(covered_start, created_at) ASC
   `);
 
+  // Raw SQL (db.all) returns real snake_case column names, so this cast is
+  // truthful — unlike Drizzle-builder sites, which return camelCase schema
+  // properties and must go through toSummaryRow().
   return (results as unknown as SummaryRow[]).map(row => rowToSummary(row));
 }
 
@@ -76,7 +79,7 @@ export async function getContextSummaries(db: DrizzleD1, limit: number = 5): Pro
     .all();
 
   // Reverse to chronological order (oldest first) for prompt narrative flow
-  return results.reverse().map(row => rowToSummary(row as unknown as SummaryRow));
+  return results.reverse().map(row => rowToSummary(toSummaryRow(row as typeof summaries.$inferSelect)));
 }
 
 /**
@@ -98,7 +101,7 @@ export async function getBufferSummaries(db: DrizzleD1, contextSize: number = 5,
     .all();
 
   // Reverse to chronological order (oldest first) for consistency
-  return results.reverse().map(row => rowToSummary(row as unknown as SummaryRow));
+  return results.reverse().map(row => rowToSummary(toSummaryRow(row as typeof summaries.$inferSelect)));
 }
 
 /**
@@ -132,7 +135,7 @@ export async function getPromotedSummaries(db: DrizzleD1): Promise<Summary[]> {
     .orderBy(asc(summaries.createdAt))
     .all();
 
-  return results.map(row => rowToSummary(row as unknown as SummaryRow));
+  return results.map(row => rowToSummary(toSummaryRow(row as typeof summaries.$inferSelect)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -169,5 +172,5 @@ export async function getSummariesWithEmbeddings(
     .orderBy(asc(summaries.createdAt))
     .all();
 
-  return results as unknown as SummaryRow[];
+  return results.map((row) => toSummaryRow(row as typeof summaries.$inferSelect));
 }

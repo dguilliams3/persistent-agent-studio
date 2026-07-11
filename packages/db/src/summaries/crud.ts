@@ -22,7 +22,7 @@ import type { DrizzleD1 } from '../client';
 import { getActivePersonaId } from '../persona-scope';
 import { scopedSelect, scopedUpdate } from '../scoped-query';
 import { summaries } from '../schema/summaries';
-import { rowToSummary, type Summary, type SummaryRow, type SummaryMetadata } from './mappers';
+import { rowToSummary, toSummaryRow, type Summary, type SummaryRow, type SummaryMetadata } from './mappers';
 
 /**
  * @description Legacy function - retrieves all summaries (for backward compatibility)
@@ -40,7 +40,7 @@ export async function getSummaries(db: DrizzleD1): Promise<Summary[]> {
   const results = await query.orderBy(asc(summaries.createdAt))
     .all();
 
-  return results.map(row => rowToSummary(row as unknown as SummaryRow));
+  return results.map(row => rowToSummary(toSummaryRow(row as typeof summaries.$inferSelect)));
 }
 
 /**
@@ -73,7 +73,7 @@ export async function getAllSummaries(
       .all();
   }
 
-  return results.map(row => rowToSummary(row as unknown as SummaryRow));
+  return results.map(row => rowToSummary(toSummaryRow(row as typeof summaries.$inferSelect)));
 }
 
 /**
@@ -87,7 +87,7 @@ export async function getSummaryById(db: DrizzleD1, id: number): Promise<Summary
   const scoped = await scopedSelect(db, summaries);
   const result = await scoped.where(eq(summaries.id, id)).get();
 
-  return result ? rowToSummary(result as unknown as SummaryRow) : null;
+  return result ? rowToSummary(toSummaryRow(result as typeof summaries.$inferSelect)) : null;
 }
 
 /**

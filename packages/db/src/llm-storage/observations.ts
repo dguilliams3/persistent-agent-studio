@@ -37,6 +37,23 @@ interface ObservationOptions {
 }
 
 /**
+ * Maps a Drizzle row (camelCase properties) to the snake_case
+ * ObservationEntry contract — same boundary repair as toHistoryEntry
+ * (see packages/db/src/history.ts).
+ */
+function toObservationEntry(row: typeof observations.$inferSelect): ObservationEntry {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    summary: row.summary ?? '',
+    created_at: row.createdAt ?? '',
+    updated_at: row.updatedAt ?? '',
+    deleted_at: row.deletedAt,
+  };
+}
+
+/**
  * @description Retrieves all active (non-deleted) observations
  *
  * Observations use soft delete (deleted_at) for audit/recovery purposes.
@@ -56,7 +73,7 @@ export async function getObservations(db: DrizzleD1, options: ObservationOptions
     .orderBy(desc(observations.updatedAt))
     .all();
 
-  return rows as unknown as ObservationEntry[];
+  return rows.map(toObservationEntry);
 }
 
 /**
@@ -131,7 +148,7 @@ export async function getObservation(
       .get();
   }
 
-  return (result as unknown as ObservationEntry) ?? null;
+  return result ? toObservationEntry(result) : null;
 }
 
 /**
@@ -236,5 +253,5 @@ export async function getAllObservationsIncludingDeleted(
     .orderBy(desc(observations.updatedAt))
     .all();
 
-  return rows as unknown as ObservationEntry[];
+  return rows.map(toObservationEntry);
 }

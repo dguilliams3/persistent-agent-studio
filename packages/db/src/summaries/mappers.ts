@@ -153,6 +153,56 @@ function normalizeSourceType(sourceType: string | null): SummarySourceType {
 /**
  * Convert database row to Summary domain type
  */
+/**
+ * Maps a Drizzle summaries row (camelCase schema properties) to the
+ * snake_case SummaryRow shape rowToSummary expects.
+ *
+ * The Drizzle query-builder migration (2026-03-19) changed row property
+ * names from snake_case (raw D1) to camelCase (schema properties), and the
+ * `as unknown as SummaryRow` casts at every select site hid it — so
+ * rowToSummary read undefined for persona_id / created_at / tier and the
+ * Summaries UI got husks. `covered_end` never existed as a column (verified
+ * against live D1); it is always null.
+ */
+export function toSummaryRow(row: {
+  id: number;
+  personaId: number;
+  summary: string;
+  messageCount: number | null;
+  coveredRange: string | null;
+  coveredStart: string | null;
+  sourceType: string | null;
+  sourceIds: string | null;
+  tier: string | null;
+  tierPosition: number | null;
+  createdAt: string | null;
+  archivedAt: string | null;
+  replacedById: number | null;
+  embedding: unknown;
+  embeddingModel: string | null;
+  metadata: string | null;
+}): SummaryRow {
+  return {
+    id: row.id,
+    persona_id: row.personaId,
+    summary: row.summary,
+    message_count: row.messageCount ?? 0,
+    covered_range: row.coveredRange ?? '',
+    covered_start: row.coveredStart,
+    covered_end: null,
+    source_type: row.sourceType,
+    source_ids: row.sourceIds,
+    tier: row.tier ?? 'tail',
+    tier_position: row.tierPosition,
+    created_at: row.createdAt ?? '',
+    archived_at: row.archivedAt,
+    replaced_by_id: row.replacedById,
+    embedding: (row.embedding as ArrayBuffer | null) ?? null,
+    embedding_model: row.embeddingModel,
+    metadata: row.metadata,
+  };
+}
+
 export function rowToSummary(row: SummaryRow): Summary {
   return {
     id: row.id as SummaryId,

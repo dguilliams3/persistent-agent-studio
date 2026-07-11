@@ -30,6 +30,36 @@ export interface HistoryEntry {
 }
 
 /**
+ * Maps a Drizzle row (camelCase schema properties) to the public
+ * snake_case HistoryEntry contract.
+ *
+ * The Drizzle query-builder migration replaced raw SQL (which returned
+ * snake_case column names) with the query builder (which returns camelCase
+ * property names) and hid the shape change behind `as unknown as` casts.
+ * Every consumer of the declared contract — the summarization pipeline
+ * (`new Date(undefined)` → "Invalid time value"), UI timestamps, cycle
+ * expansion — silently broke. This mapper restores the contract at the
+ * boundary. It also intentionally DROPS `embedding`/`embedding_model`:
+ * multi-KB vector blobs do not belong in chat/history responses.
+ */
+export function toHistoryEntry(row: typeof history.$inferSelect): HistoryEntry {
+  return {
+    id: row.id,
+    persona_id: row.personaId,
+    type: row.type,
+    content: row.content ?? '',
+    internal: row.internal,
+    cycle_id: row.cycleId,
+    meter_snapshot: row.meterSnapshot,
+    metadata: row.metadata,
+    created_at: row.createdAt ?? '',
+    summarized_at: row.summarizedAt,
+    blurred: row.blurred ?? 0,
+    vaulted: row.vaulted ?? 0,
+  };
+}
+
+/**
  * Options for persona-scoped history operations.
  */
 export interface HistoryOptions {
@@ -69,7 +99,7 @@ export async function getHistory(
     .limit(limit)
     .all();
 
-  return (results as unknown as HistoryEntry[]).reverse(); // chronological order
+  return results.map(toHistoryEntry).reverse(); // chronological order
 }
 
 /**
@@ -237,7 +267,7 @@ export async function getHistoryForContext(
     .limit(limit)
     .all();
 
-  return (results as unknown as HistoryEntry[]).reverse(); // chronological order
+  return results.map(toHistoryEntry).reverse(); // chronological order
 }
 
 /**
@@ -270,7 +300,7 @@ export async function getOldestHistory(
     .limit(limit)
     .all();
 
-  return results as unknown as HistoryEntry[];
+  return results.map(toHistoryEntry);
 }
 
 /**

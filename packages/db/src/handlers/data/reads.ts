@@ -13,7 +13,9 @@ import type { DrizzleD1 } from '../../client';
 import { getActivePersonaId } from '../../persona-scope';
 import { scopedSelect } from '../../scoped-query';
 import { history } from '../../schema/history';
+import { toHistoryEntry } from '../../history';
 import { coldStorage } from '../../schema/cold-storage';
+import { toColdStorageEntry } from '../../llm-storage/cold-storage';
 import { cycles } from '../../schema/cycles';
 
 import {
@@ -96,7 +98,12 @@ export async function handleGetHistory(db: DrizzleD1, searchParams: URLSearchPar
     ? query.orderBy(desc(history.createdAt))
     : query.where(isNull(history.summarizedAt)).orderBy(desc(history.createdAt))
   ).limit(limit).offset(offset).all();
-  const historyEntries = results.reverse();
+  // Map camelCase Drizzle rows to the snake_case HistoryEntry contract the
+  // UI reads (created_at, cycle_id, ...) and drop embedding blobs from the
+  // payload — see toHistoryEntry.
+  const historyEntries = results
+    .map((row) => toHistoryEntry(row as typeof history.$inferSelect))
+    .reverse();
 
   return {
     history: historyEntries,
@@ -127,7 +134,7 @@ export async function handleGetColdStorage(db: DrizzleD1, searchParams: URLSearc
     .limit(limit).offset(offset).all();
 
   return {
-    coldStorage: results,
+    coldStorage: results.map((row) => toColdStorageEntry(row as typeof coldStorage.$inferSelect)),
     total,
     limit,
     offset,

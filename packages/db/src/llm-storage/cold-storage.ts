@@ -27,6 +27,22 @@ interface ColdStorageOptions {
 }
 
 /**
+ * Maps a Drizzle row (camelCase properties) to the snake_case
+ * ColdStorageEntry contract. The query-builder migration changed row
+ * property names; the cast below hid it and consumers read undefined
+ * created_at. See packages/db/src/history.ts toHistoryEntry for the
+ * full account.
+ */
+export function toColdStorageEntry(row: typeof coldStorage.$inferSelect): ColdStorageEntry {
+  return {
+    id: row.id,
+    content: row.content,
+    reason: row.reason ?? '',
+    created_at: row.createdAt ?? '',
+  };
+}
+
+/**
  * @description Retrieves all cold storage entries (permanent memories)
  *
  * @param db - Drizzle D1 client
@@ -41,7 +57,7 @@ export async function getColdStorage(db: DrizzleD1, options: ColdStorageOptions 
     .orderBy(asc(coldStorage.createdAt))
     .all();
 
-  return results as unknown as ColdStorageEntry[];
+  return results.map(toColdStorageEntry);
 }
 
 /**
