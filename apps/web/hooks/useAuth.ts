@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useCallback, useSyncExternalStore } from 'react';
-import { api } from '../api/client.js';
+import { api, DEMO_MODE } from '../api/client.js';
 
 // =============================================================================
 // SINGLETON AUTH STATE
@@ -110,6 +110,20 @@ export function useAuth() {
    * Verifies stored token with /auth/status endpoint
    */
   const checkAuth = useCallback(async () => {
+    // Observatory demo: there is no auth ceremony for an exhibit. The gate
+    // short-circuits on a missing localStorage token BEFORE calling
+    // /auth/status, so serving an authenticated fixture from the demo router
+    // is not enough — a fresh visitor has no token and would hit the login
+    // wall. Bypass the gate itself.
+    if (DEMO_MODE) {
+      setAuthState({
+        isAuthenticated: true,
+        user: { username: 'observer', role: 'demo' },
+        error: null,
+        isLoading: false,
+      });
+      return;
+    }
     const token = getToken();
     if (!token) {
       setAuthState({ isAuthenticated: false, user: null, isLoading: false });
