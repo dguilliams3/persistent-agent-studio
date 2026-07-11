@@ -157,12 +157,23 @@ export function ChatView() {
     [segments],
   );
 
-  /** Resolve an entry's attached media for the in-bubble image chip. */
+  /**
+   * Resolve an entry's attached media for the in-bubble image chip.
+   *
+   * `internal` is overloaded by era: on message entries it can hold private
+   * side-channel TEXT; on media entries it holds a data URL or `r2://` key.
+   * Only values that actually look like images may become an <img src> —
+   * feeding prose through produced a broken-image chip on real messages.
+   */
   const entryMediaUrl = useCallback((entry: HistoryEntry): string | null => {
     const internal = entry.internal;
     if (typeof internal !== 'string' || internal.length === 0) return null;
-    if (/^(data:image|https?:\/\/)/.test(internal)) return internal;
-    return resolveMediaUrl(internal) || null;
+    if (internal.startsWith('data:image')) return internal;
+    if (internal.startsWith('r2://')) return resolveMediaUrl(internal) || null;
+    if (/^https?:\/\/\S+\.(png|jpe?g|gif|webp|avif|svg)(\?\S*)?$/i.test(internal)) {
+      return internal;
+    }
+    return null;
   }, []);
 
   /** Whether the viewport is mobile-sized (< 768px). */
@@ -287,6 +298,33 @@ export function ChatView() {
 
   /** Render one chat segment: a message bubble (+cycle panel) or a drip-down. */
   const renderSegment = (segment: ChatSegment) => {
+    if (segment.kind === 'day') {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-md)',
+            padding: 'var(--spacing-xs) 0',
+            userSelect: 'none',
+          }}
+          aria-label={segment.label}
+        >
+          <span style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+          <span
+            style={{
+              fontSize: '0.6875rem',
+              color: 'var(--text-muted)',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {segment.label}
+          </span>
+          <span style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+        </div>
+      );
+    }
     if (segment.kind === 'actions') {
       return (
         <ActionGroup

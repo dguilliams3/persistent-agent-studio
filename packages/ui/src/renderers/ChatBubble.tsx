@@ -47,6 +47,18 @@ function formatDuration(seconds: number): string {
 }
 
 /**
+ * Formats an entry timestamp as a short clock time ("2:45 PM").
+ * Self-contained (packages/ui must not import app utilities). Accepts the
+ * DB's "YYYY-MM-DD HH:MM:SS" format; returns '' if unparseable.
+ */
+function formatClockTime(timestamp: string | null | undefined): string {
+  if (!timestamp) return '';
+  const parsed = new Date(String(timestamp).replace(' ', 'T'));
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
  * Extracts cycle metadata from a history entry's metadata JSON blob.
  * Returns null if no cycle data is available.
  */
@@ -286,6 +298,23 @@ export function ChatBubble({
                 }}
               />
             )}
+          </div>
+        )}
+
+        {/* Timestamp — small, muted, message-app convention */}
+        {formatClockTime(entry.created_at) && (
+          <div
+            style={{
+              marginTop: '4px',
+              textAlign: 'right',
+              fontSize: '0.6875rem',
+              color: 'var(--text-muted)',
+              userSelect: 'none',
+              lineHeight: 1,
+            }}
+            title={String(entry.created_at)}
+          >
+            {formatClockTime(entry.created_at)}
           </div>
         )}
 
