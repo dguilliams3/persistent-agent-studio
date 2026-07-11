@@ -34,10 +34,20 @@ import { LoadingSkeleton } from '../components/ui';
 import { useAppStore } from '../store';
 import { usePolling } from '../hooks';
 import { DEMO_MODE } from '../api/client';
+import { ActionGroup } from '../components/chat/ActionGroup';
+import { MetersStrip } from '../components/chat/MetersStrip';
+import { TimelineView } from '../components/chat/TimelineView';
+import {
+  segmentHistory,
+  USER_BUBBLE_TYPES,
+  BUBBLE_TYPES,
+  type ChatSegment,
+} from '../components/chat/segmentHistory';
+import { resolveMediaUrl } from '../store';
 import type { Persona } from '../types';
 
-/** Entry types that render as chat bubbles (mirrors ChatBubbleView constant). */
-const MESSAGE_TYPES = new Set(['user_message', 'message_to_user']);
+/** Entry types that render as chat bubbles — shared with segmentHistory. */
+const MESSAGE_TYPES = BUBBLE_TYPES;
 const AUTO_FOLLOW_BREAK_THRESHOLD_PX = 48;
 const SCROLL_BUTTON_DISTANCE_MULTIPLIER = 1.5;
 
@@ -127,6 +137,34 @@ export function ChatView() {
     [history],
   );
 
+  /**
+   * Interleaved chat segments: messages as bubbles, runs of non-message
+   * activity (thoughts, searches, questions…) as collapsible ActionGroups.
+   * Without this, everything the persona does between messages is invisible.
+   */
+  const segments = useMemo(() => segmentHistory(history), [history]);
+
+  /** Chat ↔ Timeline mode (persisted in the store since the original UI). */
+  const chatViewMode = useAppStore((s) => s.chatViewMode) as string;
+  const setChatViewMode = useAppStore(
+    (s) => s.setChatViewMode,
+  ) as (mode: string) => void;
+
+  /** Demo affordance: glow the first drip-down until someone opens one. */
+  const [attractRetired, setAttractRetired] = useState(false);
+  const firstActionsKey = useMemo(
+    () => segments.find((seg) => seg.kind === 'actions')?.key,
+    [segments],
+  );
+
+  /** Resolve an entry's attached media for the in-bubble image chip. */
+  const entryMediaUrl = useCallback((entry: HistoryEntry): string | null => {
+    const internal = entry.internal;
+    if (typeof internal !== 'string' || internal.length === 0) return null;
+    if (/^(data:image|https?:\/\/)/.test(internal)) return internal;
+    return resolveMediaUrl(internal) || null;
+  }, []);
+
   /** Whether the viewport is mobile-sized (< 768px). */
   const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -163,7 +201,7 @@ export function ChatView() {
 
   /** Virtual scrolling for the message list. */
   const virtualizer = useVirtualizer({
-    count: messageEntries.length,
+    count: segments.length,
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => 80,
     overscan: 5,
@@ -245,7 +283,54 @@ export function ChatView() {
   const personaName = activePersona?.name || 'Persona';
 
   /** Use virtualizer only for large histories (>100 messages). */
-  const useVirtualScroll = messageEntries.length > 100;
+  const useVirtualScroll = segments.length > 150;
+
+  /** Render one chat segment: a message bubble (+cycle panel) or a drip-down. */
+  const renderSegment = (segment: ChatSegment) => {
+    if (segment.kind === 'actions') {
+      return (
+        <ActionGroup
+          entries={segment.entries}
+          attract={
+            DEMO_MODE && !attractRetired && segment.key === firstActionsKey
+          }
+          onFirstOpen={() => setAttractRetired(true)}
+        />
+      );
+    }
+    const entry = segment.entry;
+    const isUser = USER_BUBBLE_TYPES.has(entry.type);
+    const cycleId = entry.cycle_id ?? undefined;
+    const isExpanded = cycleId != null && expandedCycles.has(cycleId);
+    const cycleData = !isUser && isExpanded ? extractCycleData(entry) : null;
+    return (
+      <>
+        <ChatBubble
+          entry={entry}
+          isUser={isUser}
+          expanded={isExpanded}
+          mediaUrl={entryMediaUrl(entry)}
+          onToggleExpand={() => {
+            if (cycleId != null) {
+              handleToggleCycle(cycleId);
+            }
+          }}
+        />
+        {cycleData && cycleId != null && (
+          <ExpandedThinking
+            thinking={cycleData.thinking}
+            toolCalls={cycleData.toolCalls}
+            meters={cycleData.meters}
+            cycleId={cycleId}
+            model={cycleData.model}
+            durationSeconds={cycleData.durationSeconds}
+            onToolClick={handleToolClick}
+            isExpanded={isExpanded}
+          />
+        )}
+      </>
+    );
+  };
 
   return (
     <div
@@ -257,6 +342,56 @@ export function ChatView() {
         position: 'relative',
       }}
     >
+      {/* State strip + view mode toggle */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--spacing-sm)',
+          padding: 'var(--spacing-xs) var(--spacing-lg) 0',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <MetersStrip />
+        </div>
+        <div
+          role="tablist"
+          aria-label="Chat view mode"
+          style={{
+            display: 'inline-flex',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '14px',
+            overflow: 'hidden',
+            flexShrink: 0,
+          }}
+        >
+          {(['chat', 'timeline'] as const).map((mode) => (
+            <button
+              key={mode}
+              role="tab"
+              aria-selected={chatViewMode === mode}
+              onClick={() => setChatViewMode(mode)}
+              style={{
+                padding: '4px 12px',
+                fontSize: '0.75rem',
+                border: 'none',
+                cursor: 'pointer',
+                minHeight: '28px',
+                backgroundColor:
+                  chatViewMode === mode ? 'var(--accent)' : 'var(--surface)',
+                color:
+                  chatViewMode === mode
+                    ? 'var(--text-primary)'
+                    : 'var(--text-muted)',
+              }}
+            >
+              {mode === 'chat' ? 'Chat' : 'Timeline'}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Scrollable message area */}
       <div
         ref={scrollContainerRef}
@@ -267,7 +402,7 @@ export function ChatView() {
         }}
       >
         {/* Loading state: skeleton placeholders */}
-        {isLoading && messageEntries.length === 0 && (
+        {chatViewMode !== 'timeline' && isLoading && messageEntries.length === 0 && (
           <LoadingSkeleton
             variant="bubbles"
             bubblePattern={['left', 'right', 'left', 'right', 'left']}
@@ -276,7 +411,7 @@ export function ChatView() {
         )}
 
         {/* Empty state: welcome message */}
-        {!isLoading && messageEntries.length === 0 && (
+        {chatViewMode !== 'timeline' && !isLoading && messageEntries.length === 0 && (
           <div
             style={{
               display: 'flex',
@@ -304,8 +439,10 @@ export function ChatView() {
           </div>
         )}
 
-        {/* Populated state: message bubbles */}
-        {messageEntries.length > 0 && !useVirtualScroll && (
+        {/* Populated state: interleaved bubbles + drip-downs */}
+        {chatViewMode !== 'timeline' &&
+          segments.length > 0 &&
+          !useVirtualScroll && (
           <div
             style={{
               display: 'flex',
@@ -314,46 +451,22 @@ export function ChatView() {
               padding: 'var(--spacing-lg)',
             }}
           >
-            {messageEntries.map((entry) => {
-              const isUser = entry.type === 'user_message';
-              const cycleId = entry.cycle_id ?? undefined;
-              const isExpanded =
-                cycleId != null && expandedCycles.has(cycleId);
-              const cycleData =
-                !isUser && isExpanded ? extractCycleData(entry) : null;
-
-              return (
-                <div key={entry.id}>
-                  <ChatBubble
-                    entry={entry}
-                    isUser={isUser}
-                    expanded={isExpanded}
-                    onToggleExpand={() => {
-                      if (cycleId != null) {
-                        handleToggleCycle(cycleId);
-                      }
-                    }}
-                  />
-                  {cycleData && cycleId != null && (
-                    <ExpandedThinking
-                      thinking={cycleData.thinking}
-                      toolCalls={cycleData.toolCalls}
-                      meters={cycleData.meters}
-                      cycleId={cycleId}
-                      model={cycleData.model}
-                      durationSeconds={cycleData.durationSeconds}
-                      onToolClick={handleToolClick}
-                      isExpanded={isExpanded}
-                    />
-                  )}
-                </div>
-              );
-            })}
+            {segments.map((segment) => (
+              <div
+                key={
+                  segment.kind === 'message' ? segment.entry.id : segment.key
+                }
+              >
+                {renderSegment(segment)}
+              </div>
+            ))}
           </div>
         )}
 
         {/* Populated state: virtual scroll for large histories */}
-        {messageEntries.length > 0 && useVirtualScroll && (
+        {chatViewMode !== 'timeline' &&
+          segments.length > 0 &&
+          useVirtualScroll && (
           <div
             style={{
               height: `${virtualizer.getTotalSize()}px`,
@@ -362,17 +475,14 @@ export function ChatView() {
             }}
           >
             {virtualizer.getVirtualItems().map((virtualItem) => {
-              const entry = messageEntries[virtualItem.index];
-              const isUser = entry.type === 'user_message';
-              const cycleId = entry.cycle_id ?? undefined;
-              const isExpanded =
-                cycleId != null && expandedCycles.has(cycleId);
-              const cycleData =
-                !isUser && isExpanded ? extractCycleData(entry) : null;
-
+              const segment = segments[virtualItem.index];
               return (
                 <div
-                  key={entry.id}
+                  key={
+                    segment.kind === 'message'
+                      ? segment.entry.id
+                      : segment.key
+                  }
                   ref={virtualizer.measureElement}
                   data-index={virtualItem.index}
                   style={{
@@ -387,33 +497,15 @@ export function ChatView() {
                     paddingBottom: 'var(--spacing-md)',
                   }}
                 >
-                  <ChatBubble
-                    entry={entry}
-                    isUser={isUser}
-                    expanded={isExpanded}
-                    onToggleExpand={() => {
-                      if (cycleId != null) {
-                        handleToggleCycle(cycleId);
-                      }
-                    }}
-                  />
-                  {cycleData && cycleId != null && (
-                    <ExpandedThinking
-                      thinking={cycleData.thinking}
-                      toolCalls={cycleData.toolCalls}
-                      meters={cycleData.meters}
-                      cycleId={cycleId}
-                      model={cycleData.model}
-                      durationSeconds={cycleData.durationSeconds}
-                      onToolClick={handleToolClick}
-                      isExpanded={isExpanded}
-                    />
-                  )}
+                  {renderSegment(segment)}
                 </div>
               );
             })}
           </div>
         )}
+
+        {/* Timeline mode: the full history feed */}
+        {chatViewMode === 'timeline' && <TimelineView history={history} />}
 
         {/* Think trigger (below messages) */}
         <div style={{ padding: '0 var(--spacing-lg)' }}>

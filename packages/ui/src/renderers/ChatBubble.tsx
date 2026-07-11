@@ -29,6 +29,13 @@ export interface ChatBubbleProps {
   expanded: boolean;
   /** Callback to toggle the expanded thinking panel for this entry's cycle */
   onToggleExpand: () => void;
+  /**
+   * Resolved URL of media attached to this entry (image shared mid-message).
+   * When present, the bubble renders a compact disclosure chip that expands
+   * the image inline — an explicit tap target so bubble text stays fully
+   * selectable (never make the whole bubble clickable).
+   */
+  mediaUrl?: string | null;
 }
 
 /**
@@ -178,8 +185,10 @@ export function ChatBubble({
   isUser,
   expanded,
   onToggleExpand,
+  mediaUrl = null,
 }: ChatBubbleProps) {
   const cycleData = !isUser ? parseCycleMetadata(entry) : null;
+  const [mediaOpen, setMediaOpen] = React.useState(false);
 
   return (
     <div
@@ -227,6 +236,58 @@ export function ChatBubble({
             </Markdown>
           )}
         </div>
+
+        {/* In-bubble image disclosure — chip expands the image inline */}
+        {mediaUrl && (
+          <div style={{ marginTop: 'var(--spacing-sm)' }}>
+            <button
+              onClick={() => setMediaOpen((prev) => !prev)}
+              aria-expanded={mediaOpen}
+              aria-label={mediaOpen ? 'Collapse image' : 'Expand image'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--spacing-xs)',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--surface-raised)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                minHeight: '28px',
+              }}
+            >
+              <span aria-hidden>🖼</span>
+              <span>{mediaOpen ? 'hide image' : 'image'}</span>
+              <span
+                style={{
+                  display: 'inline-block',
+                  transform: mediaOpen ? 'rotate(90deg)' : 'none',
+                  transition: 'transform var(--duration-normal) ease-out',
+                }}
+              >
+                ▸
+              </span>
+            </button>
+            {mediaOpen && (
+              <img
+                src={mediaUrl}
+                alt="Shared image"
+                loading="lazy"
+                style={{
+                  display: 'block',
+                  marginTop: 'var(--spacing-sm)',
+                  maxWidth: '100%',
+                  maxHeight: '360px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border-subtle)',
+                  objectFit: 'contain',
+                }}
+              />
+            )}
+          </div>
+        )}
 
         {/* Expand indicator for persona messages with cycle data */}
         {cycleData && (
