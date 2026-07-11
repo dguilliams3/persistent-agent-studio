@@ -39,7 +39,7 @@ import { ClaudeSearchProvider } from './brave.js';
 export interface SearchMetadata {
   /** Provider name (always 'anthropic' for now) */
   provider: 'anthropic';
-  /** Model used for search (e.g., 'claude-sonnet-4-20250514') */
+  /** Model used for search (e.g., 'claude-sonnet-5') */
   model: string;
   /** Web search tool version (e.g., 'web_search_20250305') */
   tool: string;

@@ -29,7 +29,7 @@ function createMockProvider(overrides = {}): ClaudeSearchProvider {
         searchTimeMs: 1234,
       },
     } as ServiceResult<SearchResult>),
-    getModel: vi.fn().mockReturnValue('claude-sonnet-4-20250514'),
+    getModel: vi.fn().mockReturnValue('claude-sonnet-5'),
     getToolVersion: vi.fn().mockReturnValue('web_search_20250305'),
     getProviderName: vi.fn().mockReturnValue('claude-web-search'),
     ...overrides,
@@ -49,7 +49,7 @@ function createFailingProvider(errorMessage = 'Network error'): ClaudeSearchProv
         statusCode: 500,
       } as ServiceError,
     } as ServiceResult<SearchResult>),
-    getModel: vi.fn().mockReturnValue('claude-sonnet-4-20250514'),
+    getModel: vi.fn().mockReturnValue('claude-sonnet-5'),
     getToolVersion: vi.fn().mockReturnValue('web_search_20250305'),
     getProviderName: vi.fn().mockReturnValue('claude-web-search'),
   } as any;
@@ -110,7 +110,7 @@ describe('SearchGateway.search()', () => {
 
     expect(result.metadata).toEqual({
       provider: 'anthropic',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       tool: 'web_search_20250305',
       durationMs: expect.any(Number),
       query: 'test query',
@@ -186,7 +186,7 @@ describe('SearchGateway.search()', () => {
         success: false,
         error: { code: 'UNKNOWN' } as ServiceError, // No message
       } as ServiceResult<SearchResult>),
-      getModel: vi.fn().mockReturnValue('claude-sonnet-4-20250514'),
+      getModel: vi.fn().mockReturnValue('claude-sonnet-5'),
       getToolVersion: vi.fn().mockReturnValue('web_search_20250305'),
     } as any;
     const gateway = new (SearchGateway as any)(mockProvider);
@@ -264,7 +264,7 @@ describe('SearchGateway.searchSimple()', () => {
         success: false,
         error: { code: 'UNKNOWN' } as ServiceError,
       } as ServiceResult<SearchResult>),
-      getModel: vi.fn().mockReturnValue('claude-sonnet-4-20250514'),
+      getModel: vi.fn().mockReturnValue('claude-sonnet-5'),
       getToolVersion: vi.fn().mockReturnValue('web_search_20250305'),
     } as any;
     const gateway = new (SearchGateway as any)(mockProvider);
@@ -280,7 +280,7 @@ describe('SearchGateway.searchSimple()', () => {
         success: false,
         error: undefined,
       } as any),
-      getModel: vi.fn().mockReturnValue('claude-sonnet-4-20250514'),
+      getModel: vi.fn().mockReturnValue('claude-sonnet-5'),
       getToolVersion: vi.fn().mockReturnValue('web_search_20250305'),
     } as any;
     const gateway = new (SearchGateway as any)(mockProvider);

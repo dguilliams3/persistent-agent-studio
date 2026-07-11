@@ -46,7 +46,7 @@ if (result.success) {
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Anthropic API                                 │
 │  • anthropic-beta: web-search-2025-03-05                        │
-│  • Model: claude-sonnet-4-20250514                              │
+│  • Model: claude-sonnet-5                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -150,7 +150,7 @@ Every search operation returns metadata for tracking:
 ```typescript
 interface SearchMetadata {
   provider: 'anthropic';           // Always 'anthropic' currently
-  model: string;                   // e.g., 'claude-sonnet-4-20250514'
+  model: string;                   // e.g., 'claude-sonnet-5'
   tool: string;                    // e.g., 'web_search_20250305'
   durationMs: number;              // Time taken in milliseconds
   query: string;                   // Original search query

@@ -41,7 +41,7 @@ describe('ClaudeSearchProvider', () => {
     it('accepts config object', () => {
       const config: ClaudeSearchConfig = {
         apiKey: mockApiKey,
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-5',
         maxTokens: 4096,
         systemPrompt: 'Be concise.',
       };
@@ -186,7 +186,28 @@ describe('ClaudeSearchProvider', () => {
       const call = fetchSpy.mock.calls[0];
       const body = JSON.parse(call[1]?.body as string);
 
-      expect(body.model).toBe('claude-sonnet-4-20250514');
+      expect(body.model).toBe('claude-sonnet-5');
+      // Retired dated ids (claude-sonnet-4-*) 404 at the API — the default
+      // must stay a live alias. Regression: "Search failed: model: ..."
+      expect(body.model).not.toMatch(/-202\d{5}$/);
+    });
+
+    it('disables adaptive thinking so max_tokens buys summary, not deliberation', async () => {
+      const provider = ClaudeSearchProvider.fromCredentials(mockApiKey);
+
+      fetchSpy.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ content: [{ type: 'text', text: 'Results' }] }),
+          { status: 200 }
+        )
+      );
+
+      await provider.search('test');
+
+      const call = fetchSpy.mock.calls[0];
+      const body = JSON.parse(call[1]?.body as string);
+
+      expect(body.thinking).toEqual({ type: 'disabled' });
     });
 
     it('uses custom model when specified', async () => {

@@ -101,7 +101,7 @@ export interface SearchResultItem {
 export interface ClaudeSearchConfig {
   /** Anthropic API key */
   apiKey: string;
-  /** Model to use (default: claude-sonnet-4-20250514) */
+  /** Model to use (default: claude-sonnet-5) */
   model?: string;
   /** Max tokens for response (default: 2048) */
   maxTokens?: number;

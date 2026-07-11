@@ -32,7 +32,7 @@ import type {
 // =============================================================================
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+const DEFAULT_MODEL = 'claude-sonnet-5';
 const DEFAULT_MAX_TOKENS = 2048;
 const WEB_SEARCH_TOOL_VERSION = 'web_search_20250305';
 
@@ -143,7 +143,7 @@ export class ClaudeSearchProvider implements SearchService {
    * @upstream Called by: SearchGateway.search()
    * @downstream Calls: None (getter)
    *
-   * @returns {string} Model name (e.g., 'claude-sonnet-4-20250514')
+   * @returns {string} Model name (e.g., 'claude-sonnet-5')
    */
   getModel(): string {
     return this.model;
@@ -188,6 +188,11 @@ export class ClaudeSearchProvider implements SearchService {
       const body: Record<string, unknown> = {
         model: this.model,
         max_tokens: this.maxTokens,
+        // Adaptive thinking (on by default for sonnet-5+) spends from
+        // max_tokens BEFORE any text is emitted — with a 2048 budget the
+        // summary can come back empty. Search wants the tokens as answer,
+        // not deliberation. Same failure mode as the core provider fix.
+        thinking: { type: 'disabled' },
         tools: [{ type: WEB_SEARCH_TOOL_VERSION, name: 'web_search' }],
         messages,
       };
