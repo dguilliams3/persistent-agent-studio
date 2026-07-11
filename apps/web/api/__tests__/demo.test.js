@@ -82,6 +82,13 @@ describe('observatory demo router', () => {
     expect(types).toContain('thought');
   });
 
+  it('GET /sim/basin returns observatory metrics in overview shape', async () => {
+    const data = await settle(demoRequest('/sim/basin'));
+    expect(data.global.sampleCount).toBeGreaterThan(0);
+    expect(data.typeBasinReference.thought.meanDistance).toBeGreaterThan(0);
+    expect(data.crossType.pairs.user_message).toBeGreaterThan(0);
+  });
+
   it('unknown GET returns an empty object', async () => {
     const data = await settle(demoRequest('/definitely-not-a-route'));
     expect(data).toEqual({});

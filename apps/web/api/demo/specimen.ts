@@ -399,3 +399,32 @@ export const SPECIMEN_AUTH_STATUS = {
   user: { username: 'observer', role: 'demo' },
   demo: true,
 };
+
+/**
+ * SIM (identity observatory) basin fixture — the exhibit's marquee feature.
+ * Numbers tell the same story as the history arc: the specimen's inner voice
+ * (thought) sits in a tight basin, its voice to the operator close by, the
+ * operator's own messages measurably farther out — and the outlier count is
+ * low because week three is settled.
+ */
+export const SPECIMEN_SIM_BASIN = {
+  global: {
+    sampleCount: 351,
+    meanDistance: 0.194,
+    computedAt: daysAgo(1, 5),
+  },
+  outlierCount: 4,
+  typeBasinReference: {
+    thought: { meanDistance: 0.171, sampleCount: 214 },
+    message_to_user: { meanDistance: 0.189, sampleCount: 96 },
+    user_message: { meanDistance: 0.262, sampleCount: 41 },
+  },
+  crossType: {
+    pairs: {
+      thought: 0.243,
+      message_to_user: 0.231,
+      user_message: 0.318,
+    },
+  },
+  demo: true,
+};

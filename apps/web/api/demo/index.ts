@@ -29,6 +29,7 @@ import {
   SPECIMEN_METERS,
   SPECIMEN_SLEEP_STATUS,
   SPECIMEN_AUTH_STATUS,
+  SPECIMEN_SIM_BASIN,
   VISITOR_REPLY_SCRIPT,
   THINK_CYCLE_SCRIPT,
   DEMO_ID_BASE,
@@ -118,6 +119,10 @@ function demoGet(endpoint: string): Record<string, unknown> {
       return { model: SPECIMEN_STATE.selectedModel, provider: 'anthropic' };
     case '/interval':
       return { seconds: SPECIMEN_STATE.cycleIntervalSeconds };
+    case '/sim/basin':
+      return SPECIMEN_SIM_BASIN;
+    case '/sim/axes':
+      return { axes: [] };
     case '/context':
       return {
         context:
@@ -153,6 +158,8 @@ function demoPost(
       appendLater('message_to_user', reply, 6_000);
       return { success: true, demo: true };
     }
+    case '/sim/basin/compute':
+      return { success: true, global: SPECIMEN_SIM_BASIN.global, demo: true };
     case '/think-now': {
       const cycle =
         THINK_CYCLE_SCRIPT[thinkCycleCount % THINK_CYCLE_SCRIPT.length];
