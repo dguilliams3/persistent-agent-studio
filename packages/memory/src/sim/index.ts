@@ -132,6 +132,68 @@ interface RunResult {
 // ============================================================================
 
 /**
+ * Boundary mappers: Drizzle rows (camelCase schema properties) -> the
+ * snake_case *Row contracts this module's formatters read.
+ *
+ * The previous `as unknown as` double-casts forced the wrong type over
+ * correctly-typed camelCase rows — formatAxisRow then read undefined for
+ * positive_examples/negative_examples/concept_vector, the AxisManager edit
+ * form loaded blank, and Save wrote [] back over real training examples
+ * (G-001, RUN-20260711-1939). Same class as the summarization kill fixed
+ * in packages/db the same day. getScoresForEntry (explicit select aliases)
+ * is this file's positive control; these mappers bring the other four
+ * query sites to the same truth.
+ */
+export function toConceptAxisRow(row: typeof simConceptAxes.$inferSelect): ConceptAxisRow {
+  return {
+    id: row.id,
+    persona_id: row.personaId,
+    name: row.name,
+    description: row.description,
+    positive_examples: row.positiveExamples,
+    negative_examples: row.negativeExamples,
+    concept_vector: (row.conceptVector as ArrayBuffer | null) ?? null,
+    vector_model: row.vectorModel ?? "bge-base-en-v1.5",
+    is_active: row.isActive ?? 1,
+    created_at: row.createdAt,
+    updated_at: row.updatedAt,
+  };
+}
+
+export function toBasinMetricsRow(row: typeof simBasinMetrics.$inferSelect): BasinMetricsRow {
+  return {
+    id: row.id,
+    persona_id: row.personaId,
+    metric_type: row.metricType,
+    centroid: (row.centroid as ArrayBuffer | null) ?? null,
+    mean_distance: row.meanDistance,
+    std_distance: row.stdDistance,
+    outlier_threshold: row.outlierThreshold,
+    sample_count: row.sampleCount,
+    metadata: row.metadata ?? "{}",
+    computed_at: row.computedAt,
+  };
+}
+
+export function toAnomalyFlagRow(row: typeof simAnomalyFlags.$inferSelect): AnomalyFlagRow {
+  return {
+    id: row.id,
+    persona_id: row.personaId,
+    target_table: row.targetTable,
+    target_id: row.targetId,
+    basin_distance: row.basinDistance,
+    z_score: row.zScore,
+    flagged_axes: row.flaggedAxes ?? "[]",
+    detection_method: row.detectionMethod,
+    inspected: row.inspected ?? 0,
+    verdict: row.verdict,
+    notes: row.notes,
+    created_at: row.createdAt,
+    resolved_at: row.resolvedAt,
+  };
+}
+
+/**
  * Mapping from JS property names to SQL column names for axis updates
  */
 const AXIS_COLUMN_MAP: Record<string, string> = {
@@ -386,7 +448,8 @@ export async function getAxes(
     )
     .orderBy(asc(simConceptAxes.name))
     .all();
-  return (rows as unknown as ConceptAxisRow[])
+  return rows
+    .map(toConceptAxisRow)
     .map(formatAxisRow)
     .filter((a): a is ConceptAxis => a !== null);
 }
@@ -415,7 +478,7 @@ export async function getAxisById(
       and(eq(simConceptAxes.personaId, personaId), eq(simConceptAxes.id, id)),
     )
     .get();
-  return formatAxisRow((row as unknown as ConceptAxisRow) ?? null);
+  return formatAxisRow(row ? toConceptAxisRow(row) : null);
 }
 
 /**
@@ -767,7 +830,7 @@ export async function getBasinMetrics(
     .orderBy(desc(simBasinMetrics.computedAt), desc(simBasinMetrics.id))
     .get();
   if (!row) return null;
-  const typedRow = row as unknown as BasinMetricsRow;
+  const typedRow = toBasinMetricsRow(row);
   return {
     ...typedRow,
     centroid: typedRow.centroid ? blobToEmbedding(typedRow.centroid) : null,
@@ -888,7 +951,7 @@ export async function getAnomalies(
     .limit(queryLimit)
     .all();
 
-  return (rows as unknown as AnomalyFlagRow[]).map((row) => ({
+  return rows.map(toAnomalyFlagRow).map((row) => ({
     ...row,
     flagged_axes: parseExamples(
       row.flagged_axes,
