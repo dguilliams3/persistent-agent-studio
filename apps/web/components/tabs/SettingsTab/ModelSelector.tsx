@@ -47,7 +47,7 @@ const MODEL_METADATA = {
     ],
     costHint: '~$1/MTok',
   },
-  'claude-sonnet-4-6-20250514': {
+  'claude-sonnet-5': {
     icon: Brain,
     color: 'text-cyan-400',
     bgColor: 'bg-cyan-500/10',

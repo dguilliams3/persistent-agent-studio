@@ -49,7 +49,7 @@ describe('resolveModel', () => {
   it('resolves anthropic model by key', () => {
     const provider = resolveProvider('anthropic');
     const model = resolveModel(provider, 'sonnet');
-    expect(model.displayName).toBe('Claude 4.6 Sonnet');
+    expect(model.displayName).toBe('Claude Sonnet 5');
     expect(model.id).toContain('sonnet');
   });
 
@@ -77,7 +77,7 @@ describe('resolveModelById', () => {
     const provider = resolveProvider('anthropic');
     const model = resolveModelById(provider, anthropic.models.sonnet.id);
     expect(model).toBeDefined();
-    expect(model?.displayName).toBe('Claude 4.6 Sonnet');
+    expect(model?.displayName).toBe('Claude Sonnet 5');
   });
 
   it('finds openai model by exact ID', () => {
@@ -119,7 +119,7 @@ describe('resolveProviderModel', () => {
   it('resolves valid provider/model reference', () => {
     const { provider, model } = resolveProviderModel('anthropic/sonnet');
     expect(provider.name).toBe('Anthropic');
-    expect(model.displayName).toBe('Claude 4.6 Sonnet');
+    expect(model.displayName).toBe('Claude Sonnet 5');
   });
 
   it('resolves openai provider/model reference', () => {

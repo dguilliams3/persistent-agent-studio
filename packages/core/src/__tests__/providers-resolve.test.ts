@@ -90,14 +90,14 @@ describe('resolveModel()', () => {
     it('resolves "haiku"', () => {
       const model = resolveModel(anthropic, 'haiku');
 
-      expect(model.id).toBe('claude-haiku-4-5-20250514');
+      expect(model.id).toBe('claude-haiku-4-5');
       expect(model.displayName).toBe('Claude 4.5 Haiku');
     });
 
     it('resolves "sonnet"', () => {
       const model = resolveModel(anthropic, 'sonnet');
 
-      expect(model.id).toBe('claude-sonnet-4-6-20250514');
+      expect(model.id).toBe('claude-sonnet-5');
     });
 
     it('resolves "opus"', () => {
@@ -171,7 +171,7 @@ describe('resolveProviderModel()', () => {
       const { provider, model } = resolveProviderModel('anthropic/sonnet');
 
       expect(provider.name).toBe('Anthropic');
-      expect(model.id).toBe('claude-sonnet-4-6-20250514');
+      expect(model.id).toBe('claude-sonnet-5');
     });
 
     it('resolves "anthropic/haiku"', () => {
@@ -379,7 +379,7 @@ describe('real-world scenarios', () => {
     const provider = resolveProvider(providerName);
     const model = resolveModel(provider, modelName);
 
-    expect(model.id).toBe('claude-sonnet-4-6-20250514');
+    expect(model.id).toBe('claude-sonnet-5');
     expect(model.pricing.input).toBe(3.00);
   });
 

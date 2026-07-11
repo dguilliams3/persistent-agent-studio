@@ -120,7 +120,7 @@ describe('resolution function re-exports', () => {
   it('exports resolveModel', () => {
     expect(resolveModel).toBeDefined();
     expect(typeof resolveModel).toBe('function');
-    expect(resolveModel(anthropic, 'sonnet').id).toBe('claude-sonnet-4-6-20250514');
+    expect(resolveModel(anthropic, 'sonnet').id).toBe('claude-sonnet-5');
   });
 
   it('exports resolveProviderModel', () => {
@@ -283,7 +283,7 @@ describe('provider module integration', () => {
     });
 
     expect(headers['x-api-key']).toBe('sk-test-key');
-    expect(request.model).toBe('claude-sonnet-4-6-20250514');
+    expect(request.model).toBe('claude-sonnet-5');
     expect(request.max_tokens).toBe(1000);
   });
 

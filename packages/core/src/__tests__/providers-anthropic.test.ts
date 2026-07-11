@@ -55,7 +55,7 @@ describe('anthropic models', () => {
     const haiku = anthropic.models.haiku;
 
     it('has correct model ID', () => {
-      expect(haiku.id).toBe('claude-haiku-4-5-20250514');
+      expect(haiku.id).toBe('claude-haiku-4-5');
     });
 
     it('has correct display name', () => {
@@ -90,11 +90,11 @@ describe('anthropic models', () => {
     const sonnet = anthropic.models.sonnet;
 
     it('has correct model ID', () => {
-      expect(sonnet.id).toBe('claude-sonnet-4-6-20250514');
+      expect(sonnet.id).toBe('claude-sonnet-5');
     });
 
     it('has correct display name', () => {
-      expect(sonnet.displayName).toBe('Claude 4.6 Sonnet');
+      expect(sonnet.displayName).toBe('Claude Sonnet 5');
     });
 
     it('has correct pricing (more expensive than haiku)', () => {
@@ -165,7 +165,7 @@ describe('anthropic.formatRequest()', () => {
 
     const request = anthropic.formatRequest(opts);
 
-    expect(request.model).toBe('claude-sonnet-4-6-20250514');
+    expect(request.model).toBe('claude-sonnet-5');
     expect(request.max_tokens).toBe(1000);
     expect(request.system).toBe('You are a helpful assistant.');
     expect(request.messages).toEqual([{ role: 'user', content: 'Hello!' }]);

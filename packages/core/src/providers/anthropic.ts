@@ -3,7 +3,7 @@
  *
  * @module @persistence/core/providers/anthropic
  *
- * Models: Claude 3.5 Haiku, Claude 4.6 Sonnet, Claude 4.6 Opus
+ * Models: Claude Haiku 4.5, Claude Sonnet 5, Claude 4.6 Opus
  * Features: Prompt caching, vision, streaming
  *
  * @see https://docs.anthropic.com/en/docs/about-claude/models
@@ -23,7 +23,7 @@ export const anthropic: ProviderDefinition = {
 
   models: {
     haiku: {
-      id: 'claude-haiku-4-5-20250514',
+      id: 'claude-haiku-4-5',
       displayName: 'Claude 4.5 Haiku',
       contextWindow: 200000,
       pricing: {
@@ -41,9 +41,9 @@ export const anthropic: ProviderDefinition = {
     },
 
     sonnet: {
-      id: 'claude-sonnet-4-6-20250514',
-      displayName: 'Claude 4.6 Sonnet',
-      contextWindow: 200000,
+      id: 'claude-sonnet-5',
+      displayName: 'Claude Sonnet 5',
+      contextWindow: 1000000,
       pricing: {
         input: 3.00,
         output: 15.00,
@@ -98,6 +98,16 @@ export const anthropic: ProviderDefinition = {
       max_tokens: maxTokens,
       system: systemContent,
       messages,
+      // claude-sonnet-5 runs ADAPTIVE thinking by default when `thinking` is
+      // omitted, and its thinking.display defaults to "omitted" — so a tight
+      // max_tokens budget can be consumed entirely by invisible thinking,
+      // returning a response with NO text block, which parseResponse rejects
+      // as empty content. Disable explicitly: this loop's visible output IS
+      // the persona's thinking. ({type:"disabled"} is accepted on sonnet-5.)
+      // To enable API-level thinking instead: use {type:"adaptive",
+      // display:"summarized"}, raise max_tokens, and handle thinking blocks in
+      // parseResponse + history replay.
+      thinking: { type: 'disabled' },
     };
   },
 

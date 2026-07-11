@@ -36,8 +36,8 @@ import type {
 describe('ModelDefinition interface', () => {
   it('accepts complete model definition', () => {
     const model: ModelDefinition = {
-      id: 'claude-sonnet-4-6-20250514',
-      displayName: 'Claude 4.6 Sonnet',
+      id: 'claude-sonnet-5',
+      displayName: 'Claude Sonnet 5',
       contextWindow: 200000,
       pricing: {
         input: 3.00,
@@ -52,7 +52,7 @@ describe('ModelDefinition interface', () => {
       },
     };
 
-    expect(model.id).toBe('claude-sonnet-4-6-20250514');
+    expect(model.id).toBe('claude-sonnet-5');
     expect(model.pricing.input).toBe(3.00);
     expect(model.capabilities.vision).toBe(true);
   });

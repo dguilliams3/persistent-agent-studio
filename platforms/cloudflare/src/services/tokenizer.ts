@@ -62,7 +62,7 @@ type TokenCountApiResponse = {
  *       different counts for the same text (though usually identical for Claude models).
  */
 export async function countTokens(text: string, apiKey: string, options: TokenCountOptions = {}) {
-  const model = options.model || PROVIDERS.anthropic.models.sonnet.id;
+  const model = options.model || PROVIDERS?.anthropic?.models?.sonnet?.id || 'claude-sonnet-5';
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
@@ -121,7 +121,7 @@ export async function countContextTokens(
   apiKey: string,
   options: TokenCountOptions = {}
 ) {
-  const model = options.model || PROVIDERS.anthropic.models.sonnet.id;
+  const model = options.model || PROVIDERS?.anthropic?.models?.sonnet?.id || 'claude-sonnet-5';
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages/count_tokens', {

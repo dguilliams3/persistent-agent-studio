@@ -397,7 +397,7 @@ export const createDataSlice: StateCreator<AppState, [], [], DataSlice> = (
         cycleIntervalInput: String(data.cycleIntervalSeconds || 60),
         summarizeThresholdInput: String(data.summarizeThreshold || 30),
         selectedModel:
-          (data.selectedModel as string) || "claude-sonnet-4-6-20250514",
+          (data.selectedModel as string) || "claude-sonnet-5",
       });
     } catch (err: unknown) {
       console.error(

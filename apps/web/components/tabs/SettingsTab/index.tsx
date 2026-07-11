@@ -49,7 +49,7 @@ import RagConfigSection from './RagConfigSection';
 /** Default model options matching ModelSelector metadata keys. */
 const DEFAULT_MODEL_OPTIONS: Array<{ id: string; label: string }> = [
   { id: 'claude-haiku-4-5-20251001', label: 'Haiku (Fast)' },
-  { id: 'claude-sonnet-4-6-20250514', label: 'Sonnet (Balanced)' },
+  { id: 'claude-sonnet-5', label: 'Sonnet (Balanced)' },
   { id: 'claude-opus-4-6', label: 'Opus (Capable)' },
 ];
 
