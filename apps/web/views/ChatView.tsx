@@ -32,6 +32,7 @@ import type { ThinkTriggerState } from '../components/chat/ThinkTrigger';
 import { MessageInput } from '../components/ui/MessageInput';
 import { LoadingSkeleton } from '../components/ui';
 import { useAppStore } from '../store';
+import { usePolling } from '../hooks';
 import type { Persona } from '../types';
 
 /** Entry types that render as chat bubbles (mirrors ChatBubbleView constant). */
@@ -97,6 +98,9 @@ export function ChatView() {
   ) => void;
   const sendMessage = useAppStore(
     (state) => state.sendMessage,
+  ) as () => Promise<void>;
+  const fetchHistory = useAppStore(
+    (state) => state.fetchHistory,
   ) as () => Promise<void>;
   const triggerThinkNow = useAppStore(
     (state) => state.triggerThinkNow,
@@ -199,6 +203,26 @@ export function ChatView() {
     }
     previousMessageCount.current = messageEntries.length;
   }, [isAutoFollowEnabled, messageEntries.length, scrollToLatestMessage]);
+
+  /**
+   * Live updates: the persona thinks on her own schedule (cycles), so new
+   * entries arrive server-side with no user action. Poll gently while the tab
+   * is visible (usePolling pauses on hidden) — but only when the user is
+   * following the bottom of the thread, so a refetch never yanks the scroll
+   * position while they're reading older messages.
+   */
+  const isAutoFollowRef = useRef(isAutoFollowEnabled);
+  useEffect(() => {
+    isAutoFollowRef.current = isAutoFollowEnabled;
+  }, [isAutoFollowEnabled]);
+  usePolling(
+    () => {
+      if (isAutoFollowRef.current) {
+        void fetchHistory();
+      }
+    },
+    { interval: 30000, immediate: false },
+  );
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -389,7 +413,11 @@ export function ChatView() {
 
         {/* Think trigger (below messages) */}
         <div style={{ padding: '0 var(--spacing-lg)' }}>
-          <ThinkTrigger state={thinkTriggerState} onThink={triggerThinkNow} />
+          <ThinkTrigger
+            state={thinkTriggerState}
+            onThink={triggerThinkNow}
+            statusText="picking this up — usually under 2 minutes"
+          />
         </div>
       </div>
 

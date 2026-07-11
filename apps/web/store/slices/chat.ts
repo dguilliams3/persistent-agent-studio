@@ -61,24 +61,55 @@ export const createChatSlice: StateCreator<AppState, [], [], ChatSlice> = (
       setSelectedImage,
       setImagePreview,
       fetchHistory,
+      history,
+      setHistory,
     } = get();
 
     if (!userInput.trim() && !selectedImage) return;
 
-    const hasImage = !!selectedImage;
+    const text = userInput.trim();
+    const imagePayload = selectedImage;
+    const hasImage = !!imagePayload;
+
+    // Optimistic echo: the bubble appears INSTANTLY (negative temp id so it
+    // can never collide with a real row). fetchHistory() replaces the whole
+    // array on success, swapping the temp row for the real server row. On
+    // failure we remove the temp row and restore the composer text.
+    const optimisticId = -Date.now();
+    if (Array.isArray(history)) {
+      setHistory([
+        ...history,
+        {
+          id: optimisticId,
+          type: "user_message",
+          content: text || "📷 image",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+    setUserInput("");
+    setSelectedImage(null);
+    setImagePreview(null);
     addLog(`📤 Sending${hasImage ? " with image" : ""}...`);
 
     try {
       await api.post("/message", {
-        content: userInput.trim(),
-        image: selectedImage,
+        content: text,
+        image: imagePayload,
       });
       addLog("✅ Sent");
-      setUserInput("");
-      setSelectedImage(null);
-      setImagePreview(null);
       await fetchHistory();
     } catch (err: unknown) {
+      // Roll back the optimistic bubble and give the user their text back
+      const current = get().history;
+      if (Array.isArray(current)) {
+        setHistory(
+          (current as Array<{ id: number }>).filter(
+            (entry) => entry.id !== optimisticId,
+          ),
+        );
+      }
+      setUserInput(text);
       addLog(
         `❌ Send failed: ${err instanceof Error ? err.message : String(err)}`,
       );

@@ -31,6 +31,8 @@ export interface ThinkTriggerProps {
   state: ThinkTriggerState;
   /** Callback fired when the user taps "think now" */
   onThink: () => void;
+  /** Optional status copy shown under the breathing dots while thinking */
+  statusText?: string;
 }
 
 /**
@@ -92,7 +94,7 @@ function BreathingDots() {
  * Mobile: centered divider line with "↻ think now" text
  * Laptop (>= 1024px): pill button with hover state
  */
-export function ThinkTrigger({ state, onThink }: ThinkTriggerProps) {
+export function ThinkTrigger({ state, onThink, statusText }: ThinkTriggerProps) {
   if (state === 'hidden') {
     return null;
   }
@@ -102,6 +104,20 @@ export function ThinkTrigger({ state, onThink }: ThinkTriggerProps) {
       <>
         <style>{BREATHING_KEYFRAMES}</style>
         <BreathingDots />
+        {statusText && (
+          <div
+            style={{
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: '0.75rem',
+              paddingBottom: 'var(--spacing-md)',
+              userSelect: 'none',
+            }}
+            role="status"
+          >
+            {statusText}
+          </div>
+        )}
       </>
     );
   }

@@ -94,6 +94,7 @@ export const createLoopSlice: StateCreator<AppState, [], [], LoopSlice> = (
 
   triggerThinkNow: async () => {
     const { addLog, setIsThinking, fetchHistory } = get();
+    if (get().isThinking) return; // debounce double-taps
     setIsThinking(true);
     addLog("🧠 Triggering think cycle...");
     try {
@@ -110,7 +111,35 @@ export const createLoopSlice: StateCreator<AppState, [], [], LoopSlice> = (
           lastDecision: (data as Record<string, unknown>)
             .decision as import("./ui").DecisionEntry,
         });
-      await fetchHistory();
+
+      // The queued cycle runs on the next cron tick (≤60s) and then thinks
+      // for 30–90s. Resetting isThinking after the ~2s POST would make the
+      // thinking indicator lie and the reply would never appear without a
+      // manual refresh. Instead, watch for the cycle's OUTPUT: poll history
+      // until a new non-user row lands, then stop. isThinking stays true the
+      // whole time, so the indicator tells the truth.
+      const baselineId = Math.max(
+        0,
+        ...(get().history as Array<{ id: number }>).map((entry) => entry.id),
+      );
+      const POLL_MS = 8000;
+      const MAX_POLLS = 30; // ~4 minutes
+      for (let poll = 0; poll < MAX_POLLS; poll++) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        await fetchHistory();
+        const cycleOutput = (
+          get().history as Array<{ id: number; type: string }>
+        ).some(
+          (entry) => entry.id > baselineId && entry.type !== "user_message",
+        );
+        if (cycleOutput) {
+          addLog("✨ Cycle finished — new entries above");
+          return;
+        }
+      }
+      addLog(
+        "⏱️ No output after 4 min — the cycle may have errored; check the Loop tab",
+      );
     } catch (err: unknown) {
       addLog(
         `❌ Think failed: ${err instanceof Error ? err.message : String(err)}`,
