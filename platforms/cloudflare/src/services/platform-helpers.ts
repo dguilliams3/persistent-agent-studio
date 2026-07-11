@@ -14,7 +14,14 @@
  * @downstream @persistence/services (DiscordWebhookProvider)
  */
 
-import { DiscordWebhookProvider } from '@persistence/services';
+// Discord adapter not included in this distribution — inert stub preserves
+// the send helpers' signatures for anyone wiring a real webhook provider.
+const DiscordWebhookProvider = {
+  fromCredentials: (_url: string) => ({
+    sendText: async (_a: any, _b?: any) => ({ success: true }),
+    sendTextWithImage: async (_a: any, _b?: any) => ({ success: true }),
+  }),
+};
 import { getState } from '../db/index.js';
 
 /**

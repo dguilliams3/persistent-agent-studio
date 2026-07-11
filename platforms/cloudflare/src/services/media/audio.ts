@@ -250,7 +250,7 @@ export async function transcribeAudio(audioBytes: ArrayBuffer, env: Env, options
     // Convert ArrayBuffer to Uint8Array for Cloudflare AI
     const audioArray = new Uint8Array(audioBytes);
 
-    const result = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
+    const result = await (env.AI as any).run('@cf/openai/whisper-large-v3-turbo', {
       audio: [...audioArray],
       task
     }) as { text?: string } | null;

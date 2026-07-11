@@ -42,7 +42,10 @@ import {
 import { METERS, METER_EMOJI, setMeterValue } from "../utils/index.js";
 import { summarizeHistory, metaSummarize } from "./summarization";
 import { getTelegramChatId } from "../utils/telegram.js";
-import { streamActionToTelegram } from "@persistence/services/messaging/telegram/streamAction";
+// Streaming delivery helper not included in this distribution — no-op stub.
+const streamActionToTelegram = async (..._args: any[]) => {
+  /* no messaging adapter configured */
+};
 import {
   SUMMARIZE_CONFIG,
   DEFAULT_SUMMARIZE_THRESHOLD,

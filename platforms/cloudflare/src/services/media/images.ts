@@ -785,7 +785,7 @@ export async function generateImagePony(prompt: string, env: Env, options: Recor
         steps: 25,
         cfg: 7
       })
-    }, env.PONY_GALLERY_URL);
+    });
 
     if (!generateResponse.ok) {
       const errorText = await generateResponse.text();

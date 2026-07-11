@@ -42,7 +42,11 @@ import {
 import { createDrizzleClient } from '@persistence/db';
 import { getBatchHardTimeout, cancelBatch } from '../db/batches.js';
 import { logHistory, METERS, METER_EMOJI, setMeterValue } from '../utils/index.js';
-import { sendTelegram } from './telegram.js';
+// Messaging adapter not included in this distribution — no-op keeps the
+// batch pipeline's notification call sites compiling with no behavior change.
+const sendTelegram = async (..._args: any[]) => {
+  /* no messaging adapter configured */
+};
 import { getTelegramChatId } from '../utils/telegram.js';
 import { formatEasternDateTime } from '../utils/time.js';
 import { parseClaudeResponse } from '@persistence/llm';

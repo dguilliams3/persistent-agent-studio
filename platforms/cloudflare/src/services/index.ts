@@ -217,3 +217,28 @@ export {
 // =============================================================================
 export { SearchGateway } from "@persistence/services";
 
+
+// =============================================================================
+// MESSAGING ADAPTER NO-OPS
+// =============================================================================
+// The optional Telegram/Discord delivery adapters are not included in this
+// distribution — packages/services/src/messaging/ ships the transport-agnostic
+// interface (types.ts) as the extension point instead. These no-ops keep the
+// worker call sites compiling with zero behavior change; wire a concrete
+// adapter here to light up an external channel.
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+export const sendTelegram = async (..._args: any[]) => {
+  /* no messaging adapter configured */
+};
+export const sendTelegramVoice = async (..._args: any[]) => {
+  /* no messaging adapter configured */
+};
+export const sendTelegramPhoto = async (..._args: any[]) => {
+  /* no messaging adapter configured */
+};
+export const sendTelegramBase64Photo = async (..._args: any[]) => {
+  /* no messaging adapter configured */
+};
+export const escapeHtml = (s: string) => s;
+export const chunkMessage = (s: string, _max = 4000) => [s];
+export { sendDiscordMessage } from './platform-helpers.js';

@@ -488,7 +488,7 @@ async function galleryLookupPostProcessor(ctx: PostProcessorContext, data: PostP
       const telegramChatId = await getTelegramChatId(db);
       if (telegramChatId) {
         const caption = `🖼️ <b>New Profile Picture</b>\n\n<i>${escapeHtml(latestArt.internal || 'Self-portrait')}</i>`;
-        await sendTelegramBase64Photo(telegramChatId, latestArt.content, caption, env).catch(e =>
+        await sendTelegramBase64Photo(telegramChatId, latestArt.content, caption, env).catch((e: any) =>
           console.error('[PostProcessor] Telegram profile send failed:', e.message)
         );
       }
@@ -529,7 +529,7 @@ async function profileImageGenerationPostProcessor(ctx: PostProcessorContext, da
       const telegramChatId = await getTelegramChatId(db);
       if (telegramChatId) {
         const caption = `🖼️ <b>New Profile Picture</b>\n\n<i>${escapeHtml(data.prompt)}</i>`;
-        await sendTelegramBase64Photo(telegramChatId, artResult.base64, caption, env).catch(e =>
+        await sendTelegramBase64Photo(telegramChatId, artResult.base64, caption, env).catch((e: any) =>
           console.error('[PostProcessor] Telegram profile send failed:', e.message)
         );
       }
