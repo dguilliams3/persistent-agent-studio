@@ -129,6 +129,8 @@ the observatory build with a synthetic specimen. Browse its three-week settling-
 layers, and question file; send it a message (it answers honestly, including about being a script);
 press *think now* to watch a cycle land.
 
+![The observatory: a synthetic specimen's chat history in the exhibit build](docs/images/observatory-chat.png)
+
 ## Try it in 30 seconds (no account, no keys)
 
 ```bash
