@@ -122,6 +122,22 @@ React frontend (built at the root with Vite). See [SETUP.md](SETUP.md) for the f
 
 ---
 
+## Try it in 30 seconds (no account, no keys)
+
+```bash
+git clone https://github.com/dguilliams3/persistent-agent-studio
+cd persistent-agent-studio
+pnpm install && pnpm dev
+```
+
+Open the printed URL. With no backend configured, the app boots into
+**observatory demo mode**: a synthetic specimen — a fully authored three-week
+"settling in" arc — rendered through the real UI. Browse its history, memory
+layers, and question file; send it a message (it will answer honestly, including
+about being a script); press *think now* to watch a cycle land. When you deploy
+the real backend and set `VITE_WORKER_URL`, the exhibit steps aside and your own
+persona takes the enclosure.
+
 ## Quick start
 
 **Easiest path:** open the cloned repo in [Claude Code](https://claude.com/claude-code) and say

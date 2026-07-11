@@ -20,6 +20,19 @@
 
 export const WORKER_URL = import.meta.env?.VITE_WORKER_URL?.trim() || 'https://your-worker.workers.dev';
 
+/**
+ * Observatory demo mode — auto-active when no worker is configured.
+ * Without this, a fresh clone points every request at the dead placeholder
+ * above and renders a broken app. With it, `pnpm dev` opens a working
+ * exhibit backed by bundled synthetic fixtures (see api/demo/). Setting
+ * VITE_WORKER_URL switches the app to the real backend; VITE_DEMO_MODE=1
+ * forces the exhibit even with a worker configured.
+ */
+export const DEMO_MODE =
+  import.meta.env?.VITE_DEMO_MODE === '1' ||
+  (!import.meta.env?.VITE_WORKER_URL?.trim() &&
+    import.meta.env?.MODE !== 'test');
+
 // Single-user personal tool — sessionStorage is acceptable.
 // For multi-user deployment, use httpOnly cookie or server-side session.
 const ADMIN_PASSWORD_SESSION_KEY = 'admin_password';
@@ -120,6 +133,13 @@ function getAuthHeaders(
 }
 
 async function request<T = Record<string, unknown>>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  if (DEMO_MODE) {
+    const { demoRequest } = await import('./demo/index.js');
+    return demoRequest<T>(endpoint, {
+      method: (options as { method?: string }).method,
+      body: options.body,
+    });
+  }
   const url = `${WORKER_URL}${endpoint}`;
 
   const headers = getAuthHeaders(
@@ -174,6 +194,10 @@ async function request<T = Record<string, unknown>>(endpoint: string, options: R
  * @downstream Calls: fetch (native)
  */
 async function fetchRaw(endpoint: string, init: RequestInit = {}): Promise<Response> {
+  if (DEMO_MODE) {
+    const { demoFetchRaw } = await import('./demo/index.js');
+    return demoFetchRaw();
+  }
   const url = `${WORKER_URL}${endpoint}`;
   const headers = getAuthHeaders(
     endpoint,

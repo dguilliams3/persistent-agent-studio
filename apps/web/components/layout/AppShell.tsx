@@ -27,6 +27,8 @@ import type { ActiveView } from '../../types';
 import { Lightbox } from './Lightbox';
 import { GradientMesh, LoadingSkeleton } from '../ui';
 import ErrorBoundary from '../common/ErrorBoundary';
+import { DEMO_MODE } from '../../api/client';
+import { DemoBanner } from './DemoBanner';
 
 /** Lazy-loaded views — only ChatView loads eagerly. */
 const MemoryView = lazy(() => import('../../views/MemoryView'));
@@ -248,6 +250,9 @@ export function AppShell() {
       position: 'relative',
     }}>
       <GradientMesh intensity="low" />
+
+      {/* Observatory demo chip — only when no worker is configured */}
+      {DEMO_MODE && <DemoBanner />}
 
       {/* Icon Rail */}
       <div style={{
