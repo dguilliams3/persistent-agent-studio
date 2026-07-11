@@ -33,6 +33,7 @@ import { MessageInput } from '../components/ui/MessageInput';
 import { LoadingSkeleton } from '../components/ui';
 import { useAppStore } from '../store';
 import { usePolling } from '../hooks';
+import { DEMO_MODE } from '../api/client';
 import type { Persona } from '../types';
 
 /** Entry types that render as chat bubbles (mirrors ChatBubbleView constant). */
@@ -221,7 +222,10 @@ export function ChatView() {
         void fetchHistory();
       }
     },
-    { interval: 30000, immediate: false },
+    // Demo mode: scripted replies land in-memory ~6s after a send, so the
+    // exhibit polls fast enough for them to feel conversational. Live mode:
+    // replies arrive on cycle cadence (minutes) — 30s is plenty.
+    { interval: DEMO_MODE ? 5000 : 30000, immediate: false },
   );
 
   useEffect(() => {
