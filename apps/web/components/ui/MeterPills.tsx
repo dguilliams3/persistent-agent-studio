@@ -32,7 +32,6 @@
  * <MeterPills meters={meters} />
  */
 
-import { Icon } from './Icon';
 // MetersDisplay import removed - overlay disabled until Phase 8
 
 /**
@@ -84,11 +83,10 @@ const METER_CONFIG = {
 function MeterPill({ abbrev, value, color, label }: { abbrev: string; value: number; color: string; label: string }) {
   return (
     <span
-      className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-xs font-bold transition-all hover:scale-105"
+      className="inline-flex items-center gap-0.5 px-1 text-xs font-bold"
       style={{
-        backgroundColor: `${color}20`,
         color: color,
-        textShadow: `0 0 8px ${color}40`
+        textShadow: `0 0 8px ${color}30`,
       }}
       title={`${label}: ${value}/10`}
     >
@@ -135,30 +133,25 @@ export function MeterPills({
     return null;
   }
 
+  // Borderless inline strip: the header carries three controls (branch,
+  // meters, view toggle); a bordered card here read as a third stacked
+  // "block" and forced the header onto extra rows on mobile. The colored
+  // abbreviations are legible on their own.
   return (
-    <div className="relative" data-meter-pills>
-      {/* Display-only pills - click does nothing until Phase 8 fixes overlay */}
-      <div
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-border-subtle"
-        title="Meter pills (edit via Telegram: /meter)"
-      >
-        <Icon
-          name="Activity"
-          size={16}
-          className="text-content-muted"
+    <div
+      className="flex items-center gap-1"
+      data-meter-pills
+      title="Current internal state"
+    >
+      {Object.entries(METER_CONFIG).map(([name, config]) => (
+        <MeterPill
+          key={name}
+          abbrev={config.abbrev}
+          value={meters.values[name] ?? 5}
+          color={config.color}
+          label={config.label}
         />
-        <div className="flex items-center gap-1.5">
-          {Object.entries(METER_CONFIG).map(([name, config]) => (
-            <MeterPill
-              key={name}
-              abbrev={config.abbrev}
-              value={meters.values[name] ?? 5}
-              color={config.color}
-              label={config.label}
-            />
-          ))}
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

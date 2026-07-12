@@ -335,22 +335,14 @@
      line below (three elements painted over each other at 390px otherwise).
      =========================================================================== */
   .chat-header-meters {
-    /* flex lives HERE, not inline — an inline flex:1 sets flex-basis:0%,
-       which outranks any stylesheet and defeats the mobile 100%-basis wrap. */
-    flex: 1 1 0%;
+    /* Meters take the middle of the single header row and shrink first when
+       space is tight — never wrap to a new row (that read as a stacked
+       block). */
+    flex: 1 1 auto;
     min-width: 0;
-  }
-  @media (max-width: 767px) {
-    .chat-header-row {
-      flex-wrap: wrap;
-    }
-    .chat-header-toggle {
-      margin-left: auto;
-    }
-    .chat-header-meters {
-      order: 3;
-      flex: 1 1 100%;
-    }
+    display: flex;
+    justify-content: flex-start;
+    overflow: hidden;
   }
 
   /* ===========================================================================
