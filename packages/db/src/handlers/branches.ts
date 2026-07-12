@@ -25,6 +25,7 @@ import {
   editMemory,
   reorderMemory,
   removeOverride,
+  getOverrides,
   addSyntheticMemory,
   updateSyntheticMemory,
   deleteSyntheticMemory,
@@ -198,6 +199,23 @@ export async function handleIncludeMemory(db: DrizzleD1, body: { table?: string;
  * @pattern non-destructive-edit — original history row is unchanged; the override shadows it in branch view
  * @antipattern Do NOT UPDATE the original history row — edits are branch-scoped overrides, not mutations
  */
+/**
+ * GET /memory/overrides — the branch audit trail.
+ *
+ * The override system could WRITE (edit/exclude/reorder) but nothing could
+ * READ the trail back (F-04, RUN-20260711-1939): getOverrides had no route,
+ * so no client could show what a branch changes. The chat surface needs it
+ * to render edited/excluded entries truthfully.
+ */
+export async function handleGetOverrides(db: DrizzleD1) {
+  const branch = await getActiveBranch(db);
+  if (!branch) {
+    return { overrides: [], branchId: null, branchName: null };
+  }
+  const overrides = await getOverrides(db, branch.id);
+  return { overrides, branchId: branch.id, branchName: branch.name };
+}
+
 export async function handleEditMemory(db: DrizzleD1, body: { table?: string; id?: number; content?: string; type?: string; internal?: string }) {
   const { table, id, content, type, internal } = body;
   if (!table || !id) {

@@ -17,7 +17,7 @@
  * @downstream Calls: ChatBubbleView, ExpandedThinking, ThinkTrigger, MessageInput, store actions
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { HistoryEntry } from '@persistence/db';
 import { ArrowDown } from 'lucide-react';
@@ -33,10 +33,21 @@ import { MessageInput } from '../components/ui/MessageInput';
 import { LoadingSkeleton } from '../components/ui';
 import { useAppStore } from '../store';
 import { usePolling } from '../hooks';
-import { DEMO_MODE } from '../api/client';
+import api, { DEMO_MODE } from '../api/client';
 import { ActionGroup } from '../components/chat/ActionGroup';
 import { MetersStrip } from '../components/chat/MetersStrip';
 import { TimelineView } from '../components/chat/TimelineView';
+import { BranchChip } from '../components/chat/BranchChip';
+import {
+  InsertMemoryPoint,
+  InlineMemoryEditor,
+} from '../components/chat/MemoryEditTools';
+import { mergeThread, midpointTimestamp } from '../components/chat/mergeThread';
+import type {
+  SyntheticMemoryRow,
+  MemoryOverrideRow,
+  ThreadEntry,
+} from '../components/chat/mergeThread';
 import {
   segmentHistory,
   USER_BUBBLE_TYPES,
@@ -138,11 +149,70 @@ export function ChatView() {
   );
 
   /**
-   * Interleaved chat segments: messages as bubbles, runs of non-message
-   * activity (thoughts, searches, questions…) as collapsible ActionGroups.
-   * Without this, everything the persona does between messages is invisible.
+   * Branch-aware thread state. /history returns canonical rows only; the
+   * persona's real context is branch-aware, so the display fetches the
+   * active branch's synthetics + overrides and merges them (mergeThread) —
+   * otherwise injected memories are invisible and edited messages show
+   * their original text.
    */
-  const segments = useMemo(() => segmentHistory(history), [history]);
+  const [activeBranch, setActiveBranchName] = useState('main');
+  const [synthetics, setSynthetics] = useState<SyntheticMemoryRow[]>([]);
+  const [overrides, setOverrides] = useState<MemoryOverrideRow[]>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+
+  const refreshBranchState = useCallback(async () => {
+    try {
+      const [b, syn, ov] = await Promise.all([
+        api.get('/branches') as Promise<{ activeBranch?: string }>,
+        api.get('/memory/synthetic') as Promise<{
+          synthetics?: SyntheticMemoryRow[];
+        }>,
+        api.get('/memory/overrides') as Promise<{
+          overrides?: MemoryOverrideRow[];
+        }>,
+      ]);
+      setActiveBranchName(b.activeBranch || 'main');
+      setSynthetics(syn.synthetics || []);
+      setOverrides(ov.overrides || []);
+    } catch {
+      /* branch layer degrades to the canonical thread */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshBranchState();
+  }, [refreshBranchState]);
+
+  const fetchHistoryAction = useAppStore((s) => s.fetchHistory) as
+    | (() => Promise<void>)
+    | undefined;
+
+  /** After a branch swap / injection / rewrite: refetch everything. */
+  const handleBranchChanged = useCallback(() => {
+    setEditingEntryId(null);
+    void refreshBranchState();
+    void fetchHistoryAction?.();
+  }, [refreshBranchState, fetchHistoryAction]);
+
+  /**
+   * Thread = canonical history merged with the active branch's synthetics
+   * and overrides, so the display tells the same story as the persona's
+   * context. Excluded entries hide in normal mode, show dimmed in edit mode.
+   */
+  const thread = useMemo(
+    () => mergeThread(history, synthetics, overrides),
+    [history, synthetics, overrides],
+  );
+  const visibleThread = useMemo(
+    () =>
+      editMode ? thread : thread.filter((e) => !(e as ThreadEntry)._excluded),
+    [thread, editMode],
+  );
+  const segments = useMemo(
+    () => segmentHistory(visibleThread),
+    [visibleThread],
+  );
 
   /** Chat ↔ Timeline mode (persisted in the store since the original UI). */
   const chatViewMode = useAppStore((s) => s.chatViewMode) as string;
@@ -294,7 +364,7 @@ export function ChatView() {
   const personaName = activePersona?.name || 'Persona';
 
   /** Use virtualizer only for large histories (>100 messages). */
-  const useVirtualScroll = segments.length > 150;
+  const useVirtualScroll = !editMode && segments.length > 150;
 
   /** Render one chat segment: a message bubble (+cycle panel) or a drip-down. */
   const renderSegment = (segment: ChatSegment) => {
@@ -336,12 +406,26 @@ export function ChatView() {
         />
       );
     }
-    const entry = segment.entry;
+    const entry = segment.entry as ThreadEntry;
     const isUser = USER_BUBBLE_TYPES.has(entry.type);
+
+    // Rewriting this entry: swap the bubble for the inline editor.
+    if (editMode && editingEntryId === entry.id && !entry._synthetic) {
+      return (
+        <InlineMemoryEditor
+          entryId={entry.id}
+          initialContent={entry.content}
+          isUser={isUser}
+          onSaved={handleBranchChanged}
+          onCancel={() => setEditingEntryId(null)}
+        />
+      );
+    }
+
     const cycleId = entry.cycle_id ?? undefined;
     const isExpanded = cycleId != null && expandedCycles.has(cycleId);
     const cycleData = !isUser && isExpanded ? extractCycleData(entry) : null;
-    return (
+    const bubble = (
       <>
         <ChatBubble
           entry={entry}
@@ -368,6 +452,91 @@ export function ChatView() {
         )}
       </>
     );
+
+    const annotated = entry._synthetic || entry._edited || entry._excluded;
+    if (!annotated && !editMode) return bubble;
+
+    return (
+      <div
+        style={{
+          position: 'relative',
+          ...(entry._synthetic
+            ? {
+                border: '1px dashed var(--accent)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--spacing-xs)',
+                background:
+                  'color-mix(in srgb, var(--accent) 5%, transparent)',
+              }
+            : {}),
+          ...(entry._excluded ? { opacity: 0.45 } : {}),
+        }}
+      >
+        {annotated && (
+          <div
+            style={{
+              fontSize: '0.6875rem',
+              color: 'var(--accent)',
+              padding: '0 var(--spacing-xs) 4px',
+              textAlign: isUser ? 'right' : 'left',
+              userSelect: 'none',
+            }}
+          >
+            {entry._synthetic
+              ? '⑂ synthetic memory'
+              : entry._excluded
+                ? '⑂ excluded from memory'
+                : `⑂ rewritten on ${activeBranch}`}
+          </div>
+        )}
+        {editMode && !entry._synthetic && (
+          <button
+            onClick={() => setEditingEntryId(entry.id)}
+            aria-label="Rewrite this memory"
+            title="Rewrite this memory on the active branch"
+            style={{
+              position: 'absolute',
+              top: '2px',
+              ...(isUser ? { left: '2px' } : { right: '2px' }),
+              padding: '2px 7px',
+              borderRadius: '999px',
+              border: '1px solid var(--border-subtle)',
+              background: 'var(--surface-raised)',
+              color: 'var(--text-secondary)',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              zIndex: 2,
+            }}
+          >
+            ✎
+          </button>
+        )}
+        {bubble}
+      </div>
+    );
+  };
+
+  /**
+   * Midpoint timestamp for the edit-mode insertion gap ABOVE segment
+   * `index` (segments.length = the trailing gap after the last segment).
+   */
+  const gapTimestamp = (index: number): string => {
+    const entriesOf = (seg: ChatSegment): HistoryEntry[] =>
+      seg.kind === 'message'
+        ? [seg.entry]
+        : seg.kind === 'actions'
+          ? seg.entries
+          : [];
+    let before: HistoryEntry | undefined;
+    for (let i = index - 1; i >= 0 && !before; i--) {
+      const list = entriesOf(segments[i]);
+      before = list[list.length - 1];
+    }
+    let after: HistoryEntry | undefined;
+    for (let i = index; i < segments.length && !after; i++) {
+      after = entriesOf(segments[i])[0];
+    }
+    return midpointTimestamp(before, after);
   };
 
   return (
@@ -390,8 +559,28 @@ export function ChatView() {
           padding: 'var(--spacing-xs) var(--spacing-lg) 0',
         }}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <MetersStrip />
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-sm)',
+          }}
+        >
+          <BranchChip
+            activeBranch={activeBranch}
+            syntheticCount={synthetics.length}
+            editMode={editMode}
+            onToggleEditMode={() => {
+              setEditMode((p) => !p);
+              setEditingEntryId(null);
+            }}
+            onBranchChanged={handleBranchChanged}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <MetersStrip />
+          </div>
         </div>
         <div
           role="tablist"
@@ -489,15 +678,29 @@ export function ChatView() {
               padding: 'var(--spacing-lg)',
             }}
           >
-            {segments.map((segment) => (
-              <div
-                key={
-                  segment.kind === 'message' ? segment.entry.id : segment.key
-                }
-              >
-                {renderSegment(segment)}
-              </div>
-            ))}
+            {segments.map((segment, index) => {
+              const key =
+                segment.kind === 'message'
+                  ? `m-${segment.entry.id}`
+                  : segment.key;
+              return (
+                <Fragment key={key}>
+                  {editMode && segment.kind !== 'day' && (
+                    <InsertMemoryPoint
+                      timestamp={gapTimestamp(index)}
+                      onInserted={handleBranchChanged}
+                    />
+                  )}
+                  <div>{renderSegment(segment)}</div>
+                </Fragment>
+              );
+            })}
+            {editMode && (
+              <InsertMemoryPoint
+                timestamp={gapTimestamp(segments.length)}
+                onInserted={handleBranchChanged}
+              />
+            )}
           </div>
         )}
 

@@ -16,6 +16,7 @@ export {
   handleExcludeMemory,
   handleIncludeMemory,
   handleEditMemory,
+  handleGetOverrides,
   handleReorderMemory,
   handleRemoveOverride,
   handleGetSyntheticMemories,

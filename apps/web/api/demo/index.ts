@@ -47,6 +47,53 @@ let thinkCycleCount = 0;
 
 const nowStamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 
+// --- Branch / synthetic-memory / override state (per page load) ---
+// The exhibit used to accept-and-discard these writes (silent lie, FB-02):
+// Create Branch and Add Synthetic "succeeded" while nothing changed. Now the
+// film-test story — inject a memory, watch the thread, rewind by swapping
+// back to main — performs honestly against in-memory state.
+interface DemoBranch {
+  name: string;
+  is_active: number;
+  description: string | null;
+}
+interface DemoSynthetic {
+  id: number;
+  memory_type: string;
+  content: string;
+  internal: string | null;
+  position_timestamp: string | null;
+  position_after_id: number | null;
+  created_at: string;
+}
+interface DemoOverride {
+  id: number;
+  target_table: string;
+  target_id: number;
+  override_type: string;
+  override_data: string | null;
+}
+
+const demoBranches: DemoBranch[] = [
+  { name: 'main', is_active: 1, description: 'canonical timeline' },
+];
+const demoSynthetics = new Map<string, DemoSynthetic[]>();
+const demoOverrides = new Map<string, DemoOverride[]>();
+let demoBranchRowId = 100;
+
+const activeBranchName = () =>
+  demoBranches.find((b) => b.is_active === 1)?.name || 'main';
+const branchSynthetics = () => {
+  const key = activeBranchName();
+  if (!demoSynthetics.has(key)) demoSynthetics.set(key, []);
+  return demoSynthetics.get(key)!;
+};
+const branchOverrides = () => {
+  const key = activeBranchName();
+  if (!demoOverrides.has(key)) demoOverrides.set(key, []);
+  return demoOverrides.get(key)!;
+};
+
 function appendEntry(type: string, content: string): DemoHistoryEntry {
   const row: DemoHistoryEntry = {
     id: ++interactiveId,
@@ -110,9 +157,21 @@ function demoGet(endpoint: string): Record<string, unknown> {
     case '/observations':
       return { observations: [] };
     case '/branches':
-      return { branches: [] };
+      return {
+        branches: demoBranches,
+        activeBranch: activeBranchName(),
+        count: demoBranches.length,
+      };
+    case '/memory/overrides':
+      return {
+        overrides: branchOverrides(),
+        branchName: activeBranchName(),
+      };
     case '/memory/synthetic':
-      return { syntheticMemories: [] };
+      return {
+        synthetics: branchSynthetics(),
+        syntheticMemories: branchSynthetics(),
+      };
     case '/pricing':
       return { pricing: {} };
     case '/model':
@@ -175,9 +234,60 @@ function demoPost(
         message: 'Demo cycle queued — output arrives in a few seconds',
       };
     }
-    default:
-      // Writes are accepted and discarded — the exhibit is read-mostly.
+    case '/branches': {
+      const name = String(body?.name || '').trim();
+      if (!name || demoBranches.some((b) => b.name === name)) {
+        return { error: 'branch name required and must be unique' };
+      }
+      demoBranches.push({ name, is_active: 0, description: null });
       return { success: true, demo: true };
+    }
+    case '/memory/synthetic': {
+      const row: DemoSynthetic = {
+        id: ++demoBranchRowId,
+        memory_type: String(body?.type || 'user_message'),
+        content: String(body?.content || ''),
+        internal: (body?.internal as string) || null,
+        position_timestamp: (body?.timestamp as string) || null,
+        position_after_id: (body?.afterId as number) || null,
+        created_at: nowStamp(),
+      };
+      branchSynthetics().push(row);
+      return { success: true, id: row.id, demo: true };
+    }
+    case '/memory/edit': {
+      const targetId = Number(body?.id);
+      if (!targetId) return { error: 'id required' };
+      const list = branchOverrides();
+      const existing = list.find(
+        (o) => o.target_id === targetId && o.override_type === 'edit',
+      );
+      const data = JSON.stringify({ content: String(body?.content || '') });
+      if (existing) existing.override_data = data;
+      else
+        list.push({
+          id: ++demoBranchRowId,
+          target_table: 'history',
+          target_id: targetId,
+          override_type: 'edit',
+          override_data: data,
+        });
+      return { success: true, demo: true };
+    }
+    default: {
+      // PUT /branches/:name/activate — branch swap
+      const activate = path.match(/^\/branches\/([^/]+)\/activate$/);
+      if (activate) {
+        const name = decodeURIComponent(activate[1]);
+        if (!demoBranches.some((b) => b.name === name)) {
+          return { error: 'unknown branch' };
+        }
+        for (const b of demoBranches) b.is_active = b.name === name ? 1 : 0;
+        return { success: true, activeBranch: name, demo: true };
+      }
+      // Other writes are accepted and discarded — the exhibit is read-mostly.
+      return { success: true, demo: true };
+    }
   }
 }
 

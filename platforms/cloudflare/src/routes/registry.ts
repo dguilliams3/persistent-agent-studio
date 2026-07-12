@@ -216,6 +216,7 @@ import {
   handleExcludeMemory,
   handleIncludeMemory,
   handleEditMemory,
+  handleGetOverrides,
   handleReorderMemory,
   handleRemoveOverride,
   handleGetSyntheticMemories,
@@ -975,6 +976,13 @@ export const ROUTE_REGISTRY = {
           { status: (result as any).status || 400, headers: ctx.corsHeaders },
         );
       }
+      return Response.json(result, { headers: ctx.corsHeaders });
+    },
+  },
+  // Branch audit trail — read the active branch's overrides (F-04 fix)
+  "/memory/overrides": {
+    GET: async (ctx: RouteCtx) => {
+      const result = await handleGetOverrides(ctx.db);
       return Response.json(result, { headers: ctx.corsHeaders });
     },
   },

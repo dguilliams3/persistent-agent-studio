@@ -186,6 +186,7 @@ export {
   handleExcludeMemory,
   handleIncludeMemory,
   handleEditMemory,
+  handleGetOverrides,
   handleReorderMemory,
   handleRemoveOverride,
   // Synthetic memories
