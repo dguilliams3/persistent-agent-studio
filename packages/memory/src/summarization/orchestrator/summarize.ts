@@ -47,6 +47,7 @@ import { formatEntriesForSummarization } from '../formatter';
 import { parseHistorySummaryResponse } from '../parser';
 import { buildSummarizePrompt, formatDateRange } from './prompt-builder';
 
+import { parseDbTimestamp } from '@persistence/db';
 /**
  * Compress history entries into a summary.
  *
@@ -260,7 +261,7 @@ function computeTimeRangeFromEntries(
   let latest: Date | null = null;
 
   for (const entry of entries) {
-    const date = new Date(entry.created_at);
+    const date = parseDbTimestamp(entry.created_at);
 
     if (!earliest || date < earliest) {
       earliest = date;

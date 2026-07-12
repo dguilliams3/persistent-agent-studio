@@ -281,13 +281,33 @@ export async function getPinnedImages(
     .where(
       and(
         eq(pinnedImages.personaId, personaId),
-        like(history.content, "data:image%"),
+        // Mirror pinImage's acceptance: images keep media in content;
+        // user_video rows keep their poster in internal (caption in
+        // content). The old content-only filter accepted video pins and
+        // then silently dropped them from every read (L10,
+        // RUN-20260711-1939).
+        or(
+          like(history.content, "data:image%"),
+          and(
+            eq(history.type, "user_video"),
+            or(
+              like(history.internal, "data:image%"),
+              like(history.internal, "r2://%"),
+            ),
+          ),
+        ),
       ),
     )
     .orderBy(pinnedImages.slot)
     .all();
 
-  return rows as PinnedImage[];
+  // user_video: media lives in internal, caption in content — normalize to
+  // the image/prompt contract so consumers render the poster, not the text.
+  return rows.map((row) =>
+    row.type === "user_video"
+      ? { ...row, image: row.prompt ?? "", prompt: row.image }
+      : row,
+  ) as PinnedImage[];
 }
 
 /**
@@ -317,6 +337,8 @@ export async function getPinnedImagesForContext(
       slot: pinnedImages.slot,
       image_id: pinnedImages.imageId,
       raw_prompt: history.internal,
+      caption: history.content,
+      type: history.type,
     })
     .from(pinnedImages)
     .innerJoin(history, eq(pinnedImages.imageId, history.id))
@@ -327,7 +349,11 @@ export async function getPinnedImagesForContext(
   return rows.map((row) => ({
     slot: row.slot,
     image_id: row.image_id,
-    title: parsePromptToTitle(row.raw_prompt),
+    // user_video: internal holds the poster image, so the human-readable
+    // title lives in content (caption) instead.
+    title: parsePromptToTitle(
+      row.type === "user_video" ? row.caption : row.raw_prompt,
+    ),
   }));
 }
 
@@ -593,7 +619,16 @@ export async function requestViewImages(
         and(
           eq(history.id, normalizedId),
           eq(history.personaId, personaId),
-          like(history.content, "data:image%"),
+          or(
+            like(history.content, "data:image%"),
+            and(
+              eq(history.type, "user_video"),
+              or(
+                like(history.internal, "data:image%"),
+                like(history.internal, "r2://%"),
+              ),
+            ),
+          ),
         ),
       )
       .get();
@@ -637,6 +672,7 @@ export async function getPendingViewImages(
       image_id: pendingViewImages.imageId,
       image: history.content,
       prompt: history.internal,
+      type: history.type,
     })
     .from(pendingViewImages)
     .innerJoin(history, eq(pendingViewImages.imageId, history.id))
@@ -649,7 +685,13 @@ export async function getPendingViewImages(
     .orderBy(pendingViewImages.requestedAt)
     .all();
 
-  return rows as PendingViewImage[];
+  // Same video normalization as getPinnedImages: embed the poster from
+  // internal, not the caption from content.
+  return rows.map(({ type, ...row }) =>
+    type === "user_video"
+      ? { ...row, image: row.prompt ?? "", prompt: row.image }
+      : row,
+  ) as PendingViewImage[];
 }
 
 /**

@@ -33,6 +33,7 @@ import type {
 // Import as VALUE (not type) since it's a const object used at runtime
 import { DEFAULT_TYPE_ICONS } from './types';
 
+import { parseDbTimestamp } from '@persistence/db';
 // Re-export the default icons
 export { DEFAULT_TYPE_ICONS } from './types';
 
@@ -129,7 +130,7 @@ function formatSingleEntry(
     options;
 
   // Get timestamp
-  const timestamp = new Date(entry.created_at);
+  const timestamp = parseDbTimestamp(entry.created_at);
   const timeStr = formatTimestamp(timestamp, timezone);
 
   // Get icon

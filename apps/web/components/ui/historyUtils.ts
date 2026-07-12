@@ -266,11 +266,12 @@ export function formatTime(timestamp: any) {
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
 
+  // Viewer-local display — one timezone policy across bubbles, day
+  // separators, and timeline (L13, RUN-20260711-1939).
   const timeStr = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: 'America/New_York',
   });
 
   if (isToday) {
@@ -280,7 +281,6 @@ export function formatTime(timestamp: any) {
   const dateStr = date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    timeZone: 'America/New_York',
   });
 
   return `${dateStr}, ${timeStr}`;

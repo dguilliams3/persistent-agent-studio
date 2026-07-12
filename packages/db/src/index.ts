@@ -65,6 +65,7 @@ export {
   deleteHistoryByIds,
   getHistoryForContext,
   getOldestHistory,
+  parseDbTimestamp,
   getHistoryCount,
 } from "./history";
 
@@ -186,7 +187,6 @@ export {
   deleteQuestion,
   // Reminders
   getReminders,
-  getDueReminders,
   getAllReminders,
   addReminder,
   dismissReminder,

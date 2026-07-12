@@ -76,45 +76,6 @@ export async function getReminders(db: DrizzleD1, options: ReminderOptions = {})
 }
 
 /**
- * @description Retrieves reminders that are currently due based on conditions
- *
- * Filters reminders by their condition:
- * - `persistent`: Always due
- * - `next_user_message`: Due if hasUserMessage is true
- * - `after:YYYY-MM-DD`: Due if current date >= specified date
- *
- * @param db - Drizzle D1 client
- * @param context - Current context for condition evaluation
- * @param context.hasUserMessage - Whether the user has sent a message
- * @param options - Optional settings
- * @returns Array of due reminders
- */
-export async function getDueReminders(
-  db: DrizzleD1,
-  context: { hasUserMessage?: boolean } = {},
-  options: ReminderOptions = {}
-): Promise<ReminderEntry[]> {
-  const activeReminders = await getReminders(db, options);
-  const today = new Date().toISOString().slice(0, 10);
-
-  return activeReminders.filter(reminder => {
-    const condition = reminder.condition ?? 'persistent';
-
-    if (condition === 'persistent') {
-      return true;
-    }
-    if (condition === 'next_user_message') {
-      return context.hasUserMessage ?? false;
-    }
-    if (condition.startsWith('after:')) {
-      const afterDate = condition.slice(6);
-      return today >= afterDate;
-    }
-    return true; // Unknown conditions default to showing
-  });
-}
-
-/**
  * @description Retrieves ALL reminders including dismissed ones
  *
  * Use this for auditing or debugging.
@@ -289,7 +250,6 @@ export interface ReminderContext {
  *
  * @upstream Called by:
  *   - Context building (to filter reminders for display)
- *   - getDueReminders() for filtering logic
  * @downstream Calls: None (pure function)
  *
  * @param reminder - The reminder to check (needs condition field)

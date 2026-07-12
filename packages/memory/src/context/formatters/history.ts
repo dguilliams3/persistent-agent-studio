@@ -29,6 +29,7 @@ import type { UserImage, ClaudeArtImage } from '../types';
 import type { HistoryFormatOptions, HistoryFormatResult } from './types';
 import { getTypeIcon } from './types';
 
+import { parseDbTimestamp } from '@persistence/db';
 // ============================================================================
 // TIMESTAMP FORMATTING
 // ============================================================================
@@ -131,7 +132,7 @@ export function formatHistoryEntry(
   collectImages: boolean = true,
   timezone: string = 'America/New_York'
 ): string {
-  const timeStr = formatTimeForContext(new Date(entry.created_at), timezone);
+  const timeStr = formatTimeForContext(parseDbTimestamp(entry.created_at), timezone);
 
   // Content-based detection: catch ANY base64 image regardless of type
   // This prevents new image types from dumping 260K chars into context

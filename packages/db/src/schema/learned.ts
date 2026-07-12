@@ -5,15 +5,15 @@ import { sql } from "drizzle-orm";
  * @module packages/db/src/schema/learned
  * @description Learned entries represent the entity's active epistemic state —
  *   things it believes to be true, tracked with confidence levels and supporting/
- *   challenging evidence. Entries start as "emerging" and can be promoted to
- *   "established" or ultimately to cold storage when fully consolidated.
+ *   challenging evidence. Entries start as "emerging", can graduate to "stable"
+ *   and "load-bearing", and ultimately to cold storage when fully consolidated.
  *   Distinguished from cold storage (permanent) — learned is a mutable belief space.
  * @upstream think cycle — entity writes and updates learned entries via learning tools
  * @downstream cold-storage — high-confidence entries are promoted to cold storage
  * @downstream think cycle context builder — active learned entries inform belief context
  * @pattern split-schema — domain-scoped table definition for maintainability
  * @invariant persona_id is always present — beliefs are per-persona
- * @invariant confidence must be one of: "emerging", "developing", "established"
+ * @invariant confidence must be one of: "emerging", "stable", "load-bearing" (see LearnedConfidence)
  * @invariant promotedToColdStorageAt set when entry graduates to cold_storage; entry remains here
  * @coupling cold-storage.ts — promotion pipeline reads learned and inserts to cold_storage
  */
@@ -27,7 +27,7 @@ import { personas } from "./personas";
  *
  * Key columns:
  * - content: The knowledge claim or belief being tracked
- * - confidence: Epistemic state — "emerging" | "developing" | "established"
+ * - confidence: Epistemic state — "emerging" | "stable" | "load-bearing"
  * - supportingEvidence: JSON or text listing evidence that supports this belief
  * - challengingEvidence: JSON or text listing evidence that challenges this belief
  * - promotedToColdStorageAt: Timestamp when this entry graduated to cold storage

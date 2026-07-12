@@ -26,6 +26,7 @@ import { useState, useCallback } from 'react';
 import { useAppStore } from '../../../store';
 import { Select, Icon } from '../../ui';
 
+import { parseDbTimestamp } from '../../ui/historyUtils';
 // =============================================================================
 // TYPE CONFIGURATION
 // =============================================================================
@@ -448,8 +449,7 @@ function SyntheticCard({ synth, openSyntheticEdit, deleteSyntheticMemory }: any)
             <span className="font-medium">{synth.memory_type}</span>
             <span className="text-success font-medium">SYNTHETIC #{synth.id}</span>
             <span className="text-content-muted">
-              {synth.created_at && new Date(synth.created_at + 'Z').toLocaleString('en-US', {
-                timeZone: 'America/New_York',
+              {synth.created_at && parseDbTimestamp(synth.created_at).toLocaleString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 hour: 'numeric',

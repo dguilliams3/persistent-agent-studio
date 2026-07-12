@@ -21,6 +21,7 @@ import { Accordion } from '../../../ui';
 import { formatTextWithProsody } from './VoiceHistoryCard';
 import { Check, X, Edit3 } from 'lucide-react';
 
+import { parseDbTimestamp } from '../../../ui/historyUtils';
 /** Common emotion options for correction */
 const EMOTION_OPTIONS = [
   'neutral',
@@ -42,9 +43,8 @@ const EMOTION_OPTIONS = [
  */
 function formatDate(isoString: any) {
   if (!isoString) return '';
-  const date = new Date(isoString + 'Z');
+  const date = parseDbTimestamp(isoString);
   return date.toLocaleString('en-US', {
-    timeZone: 'America/New_York',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

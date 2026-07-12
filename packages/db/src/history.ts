@@ -30,6 +30,21 @@ export interface HistoryEntry {
 }
 
 /**
+ * Parses a DB timestamp string. D1 stamps rows in UTC with no timezone
+ * marker ("YYYY-MM-DD HH:MM:SS"); new Date() would treat that as LOCAL
+ * time, shifting every rendered or compared instant by the host's UTC
+ * offset (only accidentally correct on UTC runtimes like CF Workers).
+ * Bare stamps are parsed as UTC; strings that already carry a zone
+ * (toISOString() output, explicit offsets) are respected — which also
+ * retires the fragile `created_at + 'Z'` idiom that produced Invalid
+ * Date when a writer stored full ISO.
+ */
+export function parseDbTimestamp(timestamp: string): Date {
+  const iso = String(timestamp).replace(' ', 'T');
+  return new Date(/Z|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z');
+}
+
+/**
  * Maps a Drizzle row (camelCase schema properties) to the public
  * snake_case HistoryEntry contract.
  *

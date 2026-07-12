@@ -323,7 +323,7 @@ export default function SummarizationSection({
             <span className="text-content-secondary font-medium">Last Summarization Runs</span>
             {summarizationStats?.lastSummarize && (
               <span className="badge-muted text-xs">
-                {new Date(summarizationStats.lastSummarize.timestamp).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                {new Date(summarizationStats.lastSummarize.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </span>
             )}
           </div>
@@ -347,7 +347,7 @@ export default function SummarizationSection({
               {summarizationStats?.lastSummarize ? (
                 <div className="ml-6 text-xs space-y-1">
                   <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    <span className="text-content-muted"><span className="text-content-secondary">When:</span> {new Date(summarizationStats.lastSummarize.timestamp).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} EST</span>
+                    <span className="text-content-muted"><span className="text-content-secondary">When:</span> {new Date(summarizationStats.lastSummarize.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                     <span className="text-content-muted"><span className="text-content-secondary">Entries:</span> {summarizationStats.lastSummarize.entriesIncluded}/{summarizationStats.lastSummarize.entriesOffered} included</span>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -375,7 +375,7 @@ export default function SummarizationSection({
               {summarizationStats?.lastMeta ? (
                 <div className="ml-6 text-xs space-y-1">
                   <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    <span className="text-content-muted"><span className="text-content-secondary">When:</span> {new Date(summarizationStats.lastMeta.timestamp).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} EST</span>
+                    <span className="text-content-muted"><span className="text-content-secondary">When:</span> {new Date(summarizationStats.lastMeta.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                     <span className="text-content-muted"><span className="text-content-secondary">Consolidated:</span> {summarizationStats.lastMeta.summariesConsolidated} → 1 ({summarizationStats.lastMeta.summariesRemaining} remaining)</span>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1">

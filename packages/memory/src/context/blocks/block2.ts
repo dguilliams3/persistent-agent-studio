@@ -27,6 +27,7 @@
 import type { Block2Data, BlockResult } from './types';
 import { BLOCK } from '../../types';
 
+import { parseDbTimestamp } from '@persistence/db';
 /**
  * Build Block 2 (PROMOTED summaries).
  *
@@ -71,7 +72,7 @@ export function buildBlock2(
 
   // Format promoted summaries section
   const formattedSummaries = promotedSummaries.map(s => {
-    const timestamp = formatDateTime(new Date(s.created_at + 'Z'));
+    const timestamp = formatDateTime(parseDbTimestamp(s.created_at));
     return `[${timestamp}] ${s.summary}`;
   }).join('\n\n');
 

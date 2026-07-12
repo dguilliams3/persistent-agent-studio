@@ -12,6 +12,7 @@
 import { Icon } from "../../ui";
 import type { SleepStatus } from "../../../store/slices/loop";
 
+import { parseDbTimestamp } from '../../ui/historyUtils';
 // =============================================================================
 // CONTROLS SECTION
 // =============================================================================
@@ -41,9 +42,8 @@ export function ControlsSectionContent({
 }: ControlsSectionContentProps) {
   const formatLastWake = (timestamp: string | null) => {
     if (!timestamp) return "Never";
-    const date = new Date(timestamp);
+    const date = parseDbTimestamp(timestamp);
     return date.toLocaleString("en-US", {
-      timeZone: "America/New_York",
       month: "short",
       day: "numeric",
       hour: "numeric",
