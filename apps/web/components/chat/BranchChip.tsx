@@ -137,7 +137,15 @@ export function BranchChip({
         }}
       >
         <span aria-hidden>⑂</span>
-        <span>{activeBranch}</span>
+        <span
+          style={{
+            maxWidth: '110px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {activeBranch}
+        </span>
         {syntheticCount > 0 && (
           <span
             style={{

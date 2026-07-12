@@ -330,6 +330,30 @@
   }
 
   /* ===========================================================================
+     CHAT HEADER ROW — branch chip + meters + view toggle
+     One line on desktop; on phones the meters strip takes its own full-width
+     line below (three elements painted over each other at 390px otherwise).
+     =========================================================================== */
+  .chat-header-meters {
+    /* flex lives HERE, not inline — an inline flex:1 sets flex-basis:0%,
+       which outranks any stylesheet and defeats the mobile 100%-basis wrap. */
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+  @media (max-width: 767px) {
+    .chat-header-row {
+      flex-wrap: wrap;
+    }
+    .chat-header-toggle {
+      margin-left: auto;
+    }
+    .chat-header-meters {
+      order: 3;
+      flex: 1 1 100%;
+    }
+  }
+
+  /* ===========================================================================
      MOBILE-FRIENDLY TOUCH TARGETS
      Apple HIG recommends 44x44px minimum touch targets
      =========================================================================== */

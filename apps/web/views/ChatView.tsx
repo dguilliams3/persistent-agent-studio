@@ -551,38 +551,29 @@ export function ChatView() {
     >
       {/* State strip + view mode toggle */}
       <div
+        className="chat-header-row"
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
           gap: 'var(--spacing-sm)',
           padding: 'var(--spacing-xs) var(--spacing-lg) 0',
         }}
       >
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--spacing-sm)',
+        <BranchChip
+          activeBranch={activeBranch}
+          syntheticCount={synthetics.length}
+          editMode={editMode}
+          onToggleEditMode={() => {
+            setEditMode((p) => !p);
+            setEditingEntryId(null);
           }}
-        >
-          <BranchChip
-            activeBranch={activeBranch}
-            syntheticCount={synthetics.length}
-            editMode={editMode}
-            onToggleEditMode={() => {
-              setEditMode((p) => !p);
-              setEditingEntryId(null);
-            }}
-            onBranchChanged={handleBranchChanged}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <MetersStrip />
-          </div>
+          onBranchChanged={handleBranchChanged}
+        />
+        <div className="chat-header-meters">
+          <MetersStrip />
         </div>
         <div
+          className="chat-header-toggle"
           role="tablist"
           aria-label="Chat view mode"
           style={{
