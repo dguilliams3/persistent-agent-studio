@@ -83,6 +83,17 @@ let demoBranchRowId = 100;
 
 const activeBranchName = () =>
   demoBranches.find((b) => b.is_active === 1)?.name || 'main';
+
+// Mirrors the server: edits/injections made from main auto-divert to a
+// dedicated 'edits' branch so main stays pristine (the context resolve
+// ignores main overrides, so an edit on main would never apply).
+function ensureDemoEditBranch() {
+  if (activeBranchName() !== 'main') return;
+  if (!demoBranches.some((b) => b.name === 'edits')) {
+    demoBranches.push({ name: 'edits', is_active: 0, description: 'edits off main' });
+  }
+  for (const b of demoBranches) b.is_active = b.name === 'edits' ? 1 : 0;
+}
 const branchSynthetics = () => {
   const key = activeBranchName();
   if (!demoSynthetics.has(key)) demoSynthetics.set(key, []);
@@ -243,6 +254,7 @@ function demoPost(
       return { success: true, demo: true };
     }
     case '/memory/synthetic': {
+      ensureDemoEditBranch();
       const row: DemoSynthetic = {
         id: ++demoBranchRowId,
         memory_type: String(body?.type || 'user_message'),
@@ -256,6 +268,7 @@ function demoPost(
       return { success: true, id: row.id, demo: true };
     }
     case '/memory/edit': {
+      ensureDemoEditBranch();
       const targetId = Number(body?.id);
       if (!targetId) return { error: 'id required' };
       const list = branchOverrides();

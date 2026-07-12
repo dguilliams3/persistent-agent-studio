@@ -200,9 +200,17 @@ export function ChatView() {
    * and overrides, so the display tells the same story as the persona's
    * context. Excluded entries hide in normal mode, show dimmed in edit mode.
    */
+  // Display must mirror the context resolve, which IGNORES overrides on main
+  // (build-system-prompt.ts): showing a "rewritten" bubble that never reaches
+  // the persona's context is the exact lie that confused the DMT edit. On
+  // main we show pristine canonical history; edits auto-branch server-side.
+  const effectiveOverrides = useMemo(
+    () => (activeBranch === 'main' ? [] : overrides),
+    [activeBranch, overrides],
+  );
   const thread = useMemo(
-    () => mergeThread(history, synthetics, overrides),
-    [history, synthetics, overrides],
+    () => mergeThread(history, synthetics, effectiveOverrides),
+    [history, synthetics, effectiveOverrides],
   );
   const visibleThread = useMemo(
     () =>

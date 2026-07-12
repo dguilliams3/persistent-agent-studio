@@ -35,6 +35,51 @@ import {
 // --- Branch CRUD ---
 
 /**
+ * Name of the branch that edits/injections divert to when made from main.
+ * main is the canonical timeline: the context builder deliberately IGNORES
+ * overrides on main (build-system-prompt.ts), so an edit made while on main
+ * displays but never reaches the persona's context — it silently no-ops.
+ * Any memory edit therefore auto-branches off main into this branch, where
+ * both the display and the resolve honor it. Rewind = switch back to main.
+ */
+export const AUTO_EDIT_BRANCH = 'edits';
+
+/**
+ * Returns a branch that edits will actually apply to. If already on a
+ * non-main branch, that one. If on main (or nothing active), diverts to
+ * AUTO_EDIT_BRANCH — creating it (empty overlay off main) and activating it
+ * on first use. Keeps main pristine per Dan's directive
+ * (RUN-20260711-1939): "automatically branching off main for any edit".
+ */
+export async function ensureEditableBranch(
+  db: DrizzleD1,
+): Promise<{ branch: { id: number; name: string } | null; error?: string; switchedTo?: string }> {
+  const active = await getActiveBranch(db);
+  if (active && active.name !== 'main') {
+    return { branch: { id: active.id, name: active.name } };
+  }
+  let target = await getBranchByName(db, AUTO_EDIT_BRANCH);
+  if (!target) {
+    const created = await createBranch(
+      db,
+      AUTO_EDIT_BRANCH,
+      'Auto-created for edits made from main',
+      'main',
+    );
+    if (!created.success) {
+      return { branch: null, error: created.error || 'Failed to create edit branch' };
+    }
+    target = await getBranchByName(db, AUTO_EDIT_BRANCH);
+  }
+  if (!target) {
+    return { branch: null, error: 'Edit branch unavailable after creation' };
+  }
+  await activateBranch(db, AUTO_EDIT_BRANCH);
+  return { branch: { id: target.id, name: target.name }, switchedTo: target.name };
+}
+
+
+/**
  * GET /branches - Returns all branches and indicates the active one
  *
  * @downstream getBranches — reads all rows from memory_branches table
@@ -225,9 +270,9 @@ export async function handleEditMemory(db: DrizzleD1, body: { table?: string; id
     return { error: 'At least one of content, type, or internal is required', status: 400 };
   }
 
-  const branch = await getActiveBranch(db);
-  if (!branch) {
-    return { error: 'No active branch found', status: 500 };
+  const { branch, error: branchError, switchedTo } = await ensureEditableBranch(db);
+  if (branchError || !branch) {
+    return { error: branchError || 'No active branch found', status: 500 };
   }
 
   const edits: Record<string, string> = {};
@@ -235,7 +280,8 @@ export async function handleEditMemory(db: DrizzleD1, body: { table?: string; id
   if (type !== undefined) edits.type = type;
   if (internal !== undefined) edits.internal = internal;
 
-  return await editMemory(db, branch.id, table, id, edits);
+  const result = await editMemory(db, branch.id, table, id, edits);
+  return { ...result, branchName: branch.name, switchedTo };
 }
 
 /**
@@ -315,16 +361,17 @@ export async function handleAddSyntheticMemory(db: DrizzleD1, body: { type?: str
     return { error: 'Type and content are required', status: 400 };
   }
 
-  const branch = await getActiveBranch(db);
-  if (!branch) {
-    return { error: 'No active branch found', status: 500 };
+  const { branch, error: branchError, switchedTo } = await ensureEditableBranch(db);
+  if (branchError || !branch) {
+    return { error: branchError || 'No active branch found', status: 500 };
   }
 
   const placement: Record<string, string | number> = {};
   if (timestamp) placement.timestamp = timestamp;
   if (afterId) placement.afterId = afterId;
 
-  return await addSyntheticMemory(db, branch.id, type, content, internal || null, Object.keys(placement).length > 0 ? placement : null);
+  const result = await addSyntheticMemory(db, branch.id, type, content, internal || null, Object.keys(placement).length > 0 ? placement : null);
+  return { ...result, branchName: branch.name, switchedTo };
 }
 
 /**
