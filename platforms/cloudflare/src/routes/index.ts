@@ -14,6 +14,7 @@
  * - **branches.js**: Memory branching system for non-destructive editing
  * - **personas.js**: Multi-persona management (list, create, activate)
  * - **personality.js**: Personality export/import snapshots
+ * - **miniapp.js**: Telegram Mini App static content
  * - **transcribe.js**: Speech-to-text transcription
  * - **glossary.js**: STT glossary corrections
  * - **voice-realtime.js**: Realtime voice session lifecycle
@@ -22,6 +23,8 @@
  * - /context - depends on buildSystemPrompt
  * - /think-now - depends on queueThinkCycle
  * - /imagine - depends on generateImage
+ * - /telegram - depends on handleTelegramUpdate
+ * - /test-telegram, /test-discord - depend on service functions
  * - /batch-process - depends on processPendingBatches
  * - /metasummarize - depends on summarizeHistory
  * - /migrate - uses worker's own D1 binding for migrations
@@ -67,6 +70,8 @@ export {
   handleGetMeters,
   handleSetMeter,
   handleSetMetersBatch,
+  // Mini-app batch endpoint
+  handleGetMiniAppData
 } from './data.js';
 
 export { handleGetToolRegistry } from './tools.js';
@@ -85,6 +90,9 @@ export {
   // User status
   handleGetUserStatus,
   handleSetUserStatus,
+  // Discord toggle
+  handleGetDiscordEnabled,
+  handleSetDiscordEnabled,
   // Batch mode
   handleGetBatchStatus,
   handleGetBatchEnabled,
@@ -92,6 +100,9 @@ export {
   // Max tokens
   handleGetMaxTokens,
   handleSetMaxTokens,
+  // Cost ceiling
+  handleGetCostCeiling,
+  handleSetCostCeiling,
   // Telegram streaming
   handleGetStreaming,
   handleSetStreaming,
@@ -234,12 +245,32 @@ export {
 } from '@persistence/memory/snapshot/routes';
 
 // =============================================================================
+// MINI APP ROUTES (GET)
+// =============================================================================
+// Telegram Mini App static content endpoints.
+// Serves embedded HTML, CSS, and JavaScript for the gallery mini app.
+//
+// Endpoints:
+// - GET /mini-app           - HTML page
+// - GET /mini-app/styles.css - CSS stylesheet
+// - GET /mini-app/app.js    - JavaScript application
+//
+// @upstream: Called by handleRequest() in index.js
+// @downstream: None (serves static content)
+// =============================================================================
+export {
+  handleGetMiniApp,
+  handleGetMiniAppStyles,
+  handleGetMiniAppScript
+} from './miniapp.js';
+
+// =============================================================================
 // TRANSCRIPTION ROUTES (POST)
 // =============================================================================
 // Speech-to-text transcription endpoint for voice input.
 // Accepts audio data and returns transcription via Cloudflare AI Whisper.
 //
-// Used by browser-based voice UI for voice recording features.
+// Used by Mini App and React Web UI for voice recording features.
 // Complements ElevenLabs TTS by providing the STT counterpart.
 //
 // Endpoints:

@@ -14,7 +14,7 @@
  * - Actions (POST): Operations that modify data
  * - Branches: Memory branch management
  * - Personality: Export/import snapshots
- * - Embedded app/static UI content
+ * - Mini App: Telegram mini app static content
  * - Transcription: STT endpoints
  * - Glossary: STT corrections
  * - Personas: Multi-persona management
@@ -78,6 +78,7 @@ function asDrizzleDb(db: D1Database): DrizzleD1 {
 import {
   MODEL_PRICING,
   CACHE_PRICING,
+  DISCORD_WEBHOOK,
   SUMMARIZE_CONFIG,
 } from "../constants.js";
 
@@ -107,6 +108,8 @@ import {
 // Import services for inline handlers
 import {
   textToSpeech,
+  sendDiscordMessage,
+  sendTelegram,
   generateImage,
   processPendingBatches,
   queueThinkCycle,
@@ -116,6 +119,7 @@ import { CloudflareEmbeddingProvider } from "@persistence/embedding";
 import { estimateTokens } from "@persistence/memory";
 import { logHistory, formatEasternDateTime } from "../utils/index.js";
 import { summarizeHistory, metaSummarize } from "../services/summarization.js";
+import { handleTelegramUpdate } from "../telegram/index.js";
 import { buildSystemPrompt } from "../prompts/index.js";
 import { resizeImage } from "../utils/image.js";
 
@@ -173,9 +177,14 @@ import {
   handleGetMeters,
   handleSetMeter,
   handleSetMetersBatch,
+  // Mini-app batch endpoint
+  handleGetMiniAppData,
+
   // Settings routes (GET/POST)
   handleGetUserStatus,
   handleSetUserStatus,
+  handleGetDiscordEnabled,
+  handleSetDiscordEnabled,
   handleGetBatchStatus,
   handleGetBatchEnabled,
   handleSetBatchEnabled,
@@ -231,6 +240,11 @@ import {
   handleImportPersonality,
   handleValidateSnapshot,
   handlePreviewImport,
+
+  // Mini app routes
+  handleGetMiniApp,
+  handleGetMiniAppStyles,
+  handleGetMiniAppScript,
 
   // Transcription routes
   handleTranscribe,
@@ -331,6 +345,19 @@ import { handleMigrate } from "./migrate.js";
 // =============================================================================
 
 export const ROUTE_REGISTRY = {
+  // ===========================================================================
+  // MINI APP ROUTES (serve static content)
+  // ===========================================================================
+  "/mini-app": {
+    GET: (ctx: RouteCtx) => handleGetMiniApp(),
+  },
+  "/mini-app/styles.css": {
+    GET: (ctx: RouteCtx) => handleGetMiniAppStyles(),
+  },
+  "/mini-app/app.js": {
+    GET: (ctx: RouteCtx) => handleGetMiniAppScript(),
+  },
+
   // Health check (auth-exempt per request-handler.ts, dependency-free, no DB)
   "/health": {
     GET: (ctx: RouteCtx) =>
@@ -463,6 +490,20 @@ export const ROUTE_REGISTRY = {
       const result = await handleSetMetersBatch(ctx.db, changes, source);
       return Response.json(result, {
         headers: ctx.getResponseHeaders("/meters/batch", "POST"),
+      });
+    },
+  },
+  // ===========================================================================
+  // MINI-APP BATCH ENDPOINT
+  // ===========================================================================
+  // Single endpoint that returns ALL data needed by the Telegram Mini App.
+  // Consolidates 10+ separate API calls into one efficient request.
+  // ===========================================================================
+  "/mini-app-data": {
+    GET: async (ctx: RouteCtx) => {
+      const result = await handleGetMiniAppData(ctx.db);
+      return Response.json(result, {
+        headers: ctx.getResponseHeaders("/mini-app-data", "GET"),
       });
     },
   },
@@ -712,15 +753,25 @@ export const ROUTE_REGISTRY = {
   // ===========================================================================
   // SETTINGS ROUTES (GET/POST)
   // ===========================================================================
-  "/user-status": {
+  "/dan-status": {
     GET: async (ctx: RouteCtx) => {
       const result = await handleGetUserStatus(ctx.db);
       return Response.json(result, {
-        headers: ctx.getResponseHeaders("/user-status", "GET"),
+        headers: ctx.getResponseHeaders("/dan-status", "GET"),
       });
     },
     POST: async (ctx: RouteCtx) => {
       const result = await handleSetUserStatus(ctx.db, ctx.body);
+      return Response.json(result, { headers: ctx.corsHeaders });
+    },
+  },
+  "/discord-enabled": {
+    GET: async (ctx: RouteCtx) => {
+      const result = await handleGetDiscordEnabled(ctx.db);
+      return Response.json(result, { headers: ctx.corsHeaders });
+    },
+    POST: async (ctx: RouteCtx) => {
+      const result = await handleSetDiscordEnabled(ctx.db, ctx.body);
       return Response.json(result, { headers: ctx.corsHeaders });
     },
   },
@@ -750,6 +801,16 @@ export const ROUTE_REGISTRY = {
     },
     POST: async (ctx: RouteCtx) => {
       const result = await handleSetMaxTokens(ctx.db, ctx.body);
+      return Response.json(result, { headers: ctx.corsHeaders });
+    },
+  },
+  "/cost-ceiling": {
+    GET: async (ctx: RouteCtx) => {
+      const result = await handleGetCostCeiling(ctx.db);
+      return Response.json(result, { headers: ctx.corsHeaders });
+    },
+    POST: async (ctx: RouteCtx) => {
+      const result = await handleSetCostCeiling(ctx.db, ctx.body);
       return Response.json(result, { headers: ctx.corsHeaders });
     },
   },
@@ -1614,7 +1675,7 @@ export const ROUTE_REGISTRY = {
   },
   "/model": {
     POST: async (ctx: RouteCtx) => {
-      // Registry-validated (was: hardcoded 3-model triple). The
+      // Registry-validated (was: hardcoded 3-model triple — ledger S1). The
       // set of valid models is the D1 registry; editing D1 changes it live.
       const { MODEL_REGISTRY_SEED } = await import("../constants.js");
       const { getModelRegistry } = await import("@persistence/db");
@@ -2090,7 +2151,7 @@ export const ROUTE_REGISTRY = {
             .prepare(
               `
             SELECT content FROM history
-            WHERE type = 'message_to_user'
+            WHERE type = 'message_to_dan'
             AND ABS(strftime('%s', created_at) - strftime('%s', ?)) <= 5
             LIMIT 1
           `,
@@ -2594,6 +2655,59 @@ export const ROUTE_REGISTRY = {
   // ===========================================================================
   // ADMIN ROUTES
   // ===========================================================================
+  "/reset-telegram-webhook": {
+    POST: async (ctx: RouteCtx) => {
+      // Requires ADMIN_PASSWORD
+      if (
+        !ctx.env.ADMIN_PASSWORD ||
+        ctx.body?.password !== ctx.env.ADMIN_PASSWORD
+      ) {
+        return Response.json(
+          { error: "Unauthorized - invalid password" },
+          { status: 401, headers: ctx.corsHeaders },
+        );
+      }
+      const token = ctx.env.TELEGRAM_BOT_TOKEN;
+      if (!token) {
+        return Response.json(
+          { success: false, error: "TELEGRAM_BOT_TOKEN not configured" },
+          { status: 500, headers: ctx.corsHeaders },
+        );
+      }
+
+      try {
+        const deleteResp = await fetch(
+          `https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=true`,
+        );
+        const deleteResult = await deleteResp.json();
+
+        const webhookUrl =
+          "https://claude-existence-loop.dan-guilliams.workers.dev/telegram";
+        const setResp = await fetch(
+          `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&drop_pending_updates=true`,
+        );
+        const setResult = (await setResp.json()) as Record<string, any>;
+
+        return Response.json(
+          {
+            success: setResult.ok,
+            deleteResult,
+            setResult,
+            message: setResult.ok
+              ? "Webhook reset and pending updates cleared!"
+              : "Failed to reset webhook",
+          },
+          { headers: ctx.corsHeaders },
+        );
+      } catch (e: unknown) {
+        return Response.json(
+          { success: false, error: e instanceof Error ? e.message : String(e) },
+          { status: 500, headers: ctx.corsHeaders },
+        );
+      }
+    },
+  },
+
   // ===========================================================================
   // FORMERLY FALLBACK ROUTES (migrated from index.ts if/elseif block)
   // ===========================================================================
@@ -3055,9 +3169,9 @@ export const ROUTE_REGISTRY = {
                 : "unknown time";
               switch (h.type) {
                 case "user_message":
-                  return `[${timeStr}] User: "${h.content}"`;
-                case "message_to_user":
-                  return `[${timeStr}] Claude → User: "${h.content}"`;
+                  return `[${timeStr}] Dan: "${h.content}"`;
+                case "message_to_dan":
+                  return `[${timeStr}] Claude → Dan: "${h.content}"`;
                 case "thought":
                   return `[${timeStr}] Claude thought: ${h.content}`;
                 default:
@@ -3150,6 +3264,75 @@ export const ROUTE_REGISTRY = {
     },
   },
 
+  // POST /test-discord - Test Discord webhook
+  "/test-discord": {
+    POST: async (ctx: RouteCtx) => {
+      const testMessage = `🧪 Test message from Claude Existence Loop at ${formatEasternDateTime()} EST`;
+      const success = await sendDiscordMessage(DISCORD_WEBHOOK, testMessage);
+      return Response.json(
+        {
+          success,
+          message: success ? "Discord message sent!" : "Discord webhook failed",
+        },
+        { headers: ctx.corsHeaders },
+      );
+    },
+  },
+
+  // POST /telegram - Telegram webhook endpoint
+  "/telegram": {
+    POST: async (ctx: RouteCtx) => {
+      try {
+        const update = (await ctx.request.json()) as any;
+        const result = await handleTelegramUpdate(
+          update,
+          ctx.env,
+          ctx.executionCtx,
+          {
+            buildSystemPrompt,
+            summarizeHistory,
+            metaSummarize,
+            runOrchestrator: ctx.runOrchestrator,
+            createPlatformCallbacks: ctx.createPlatformCallbacks,
+          },
+        );
+        return Response.json(result, { headers: ctx.corsHeaders });
+      } catch (e: unknown) {
+        console.error("Telegram webhook error:", e);
+        return Response.json(
+          { ok: false, error: e instanceof Error ? e.message : String(e) },
+          { headers: ctx.corsHeaders },
+        );
+      }
+    },
+  },
+
+  // POST /test-telegram - Test Telegram message
+  "/test-telegram": {
+    POST: async (ctx: RouteCtx) => {
+      const chatId = await getState(ctx.db, "dan_telegram_chat_id");
+      if (!chatId) {
+        return Response.json(
+          {
+            success: false,
+            message:
+              "No Telegram chat ID stored yet. Send /start to the bot first.",
+          },
+          { headers: ctx.corsHeaders },
+        );
+      }
+      const testMessage = `🧪 Test message from Claude Existence Loop at ${formatEasternDateTime()}`;
+      const success = await sendTelegram(chatId, testMessage, ctx.env);
+      return Response.json(
+        {
+          success,
+          message: success ? "Telegram message sent!" : "Telegram send failed",
+        },
+        { headers: ctx.corsHeaders },
+      );
+    },
+  },
+
   // POST /think-now - Trigger immediate thinking cycle
   "/think-now": {
     POST: async (ctx: RouteCtx) => {
@@ -3236,7 +3419,7 @@ export const ROUTE_REGISTRY = {
       await ctx.db.exec("DELETE FROM summaries");
       await setState(ctx.db, "loop_count", "0");
       await setState(ctx.db, "last_wake_time", null);
-      await setState(ctx.db, "last_message_to_user", null);
+      await setState(ctx.db, "last_message_to_dan", null);
       await setState(ctx.db, "is_running", "false");
       return Response.json({ success: true }, { headers: ctx.corsHeaders });
     },

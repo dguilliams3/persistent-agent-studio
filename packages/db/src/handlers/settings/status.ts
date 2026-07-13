@@ -22,8 +22,10 @@ type SettingsBody = Record<string, unknown>;
 // --- User Status ---
 
 export async function handleGetUserStatus(db: DrizzleD1) {
-  const status = await getState(db, 'user_status');
-  const timestamp = await getState(db, 'user_status_timestamp');
+  // NOTE: DB keys are 'dan_status' / 'dan_status_timestamp' — rename requires data migration
+  // TODO(migration): rename dan_status → user_status, dan_status_timestamp → user_status_timestamp
+  const status = await getState(db, 'dan_status');
+  const timestamp = await getState(db, 'dan_status_timestamp');
   return { status: status || 'unknown', timestamp };
 }
 
@@ -32,8 +34,10 @@ export async function handleSetUserStatus(db: DrizzleD1, body: SettingsBody) {
   if (!status || typeof status !== 'string') {
     return { error: 'Status is required and must be a string', status: 400 };
   }
-  await setState(db, 'user_status', status);
-  await setState(db, 'user_status_timestamp', new Date().toISOString());
+  // NOTE: DB keys are 'dan_status' / 'dan_status_timestamp' — rename requires data migration
+  // TODO(migration): rename dan_status → user_status, dan_status_timestamp → user_status_timestamp
+  await setState(db, 'dan_status', status);
+  await setState(db, 'dan_status_timestamp', new Date().toISOString());
   return { success: true, status };
 }
 
@@ -106,6 +110,29 @@ export async function handleSetMaxTokens(db: DrizzleD1, body: SettingsBody) {
   }
   await setState(db, 'max_output_tokens', String(value));
   return { success: true, maxTokens: value };
+}
+
+// --- Cost Ceiling ---
+
+export async function handleGetCostCeiling(db: DrizzleD1) {
+  const ceiling = await getState(db, 'cost_ceiling_cents');
+  return { costCeilingCents: ceiling ? parseFloat(ceiling) : null };
+}
+
+export async function handleSetCostCeiling(db: DrizzleD1, body: SettingsBody) {
+  const cents = body.cents;
+  if (cents === null) {
+    await setState(db, 'cost_ceiling_cents', null);
+    return { success: true, costCeilingCents: null };
+  }
+
+  const value = typeof cents === 'number' ? cents : parseFloat(String(cents));
+  if (!Number.isFinite(value) || value < 0) {
+    return { error: 'cents must be a number >= 0, or null to clear the ceiling', status: 400 };
+  }
+
+  await setState(db, 'cost_ceiling_cents', String(value));
+  return { success: true, costCeilingCents: value };
 }
 
 // --- Streaming ---
