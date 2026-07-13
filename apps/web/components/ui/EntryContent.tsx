@@ -3,11 +3,12 @@
  *
  * @module ui/EntryContent
  * @description Renders the main content of a history entry: text, art previews,
- * the user's images/videos, internal reasoning, and parse error expandables.
+ * Dan's images/videos, internal reasoning, and parse error expandables.
  *
  * @upstream Called by: ui/HistoryEntryRow
  * @downstream Calls: ui/BlurReveal, store/resolveMediaUrl
  * @pattern Decomposed sub-component — extracted from HistoryEntryRow (Wave 2C)
+ * Tested by: `apps/web/components/ui/__tests__/HistoryEntryRow.test.tsx`
  */
 
 import { useState } from 'react';
@@ -18,27 +19,31 @@ import { BlurReveal } from './BlurReveal';
 interface EntryContentProps {
   entry: Record<string, any>;
   isArtResult: boolean;
-  isUserArt: boolean;
-  isUserImage: boolean;
-  isUserVideo: boolean;
+  isDanArt: boolean;
+  isDanImage: boolean;
+  isDanVideo: boolean;
   isParseError: boolean;
   showImages?: boolean;
   blurImages?: boolean;
   getAllImages?: () => Array<{ src: string; prompt: string }>;
   openLightbox?: (images: Array<{ src: string; prompt: string }>, index: number) => void;
+  editMode?: boolean;
+  onEditEntry?: (entryId: number) => void;
 }
 
 export function EntryContent({
   entry: h,
   isArtResult,
-  isUserArt,
-  isUserImage,
-  isUserVideo,
+  isDanArt,
+  isDanImage,
+  isDanVideo,
   isParseError,
   showImages = false,
   blurImages = false,
   getAllImages,
   openLightbox,
+  editMode = false,
+  onEditEntry,
 }: EntryContentProps) {
   const [rawExpanded, setRawExpanded] = useState(false);
 
@@ -56,9 +61,9 @@ export function EntryContent({
       <span className={h.type === 'exist' ? 'text-content-muted italic' : 'text-content-secondary'}>
         {isArtResult ? (
           <span className="text-content-muted">[generated image]</span>
-        ) : isUserImage ? (
+        ) : isDanImage ? (
           (h.content as string) || '[sent image]'
-        ) : isUserVideo ? (
+        ) : isDanVideo ? (
           (h.content as string) || '[sent video]'
         ) : (
           (h.content as string) || (h.internal as string) || '...'
@@ -68,44 +73,54 @@ export function EntryContent({
       {/* Internal reasoning subthought */}
       {h.internal &&
         !isArtResult &&
-        !isUserImage &&
-        !isUserVideo &&
-        h.type !== 'exist' &&
-        h.content && (
-          <div className="ml-6 mt-1 text-xs text-content-muted italic">
-            ↳ {h.internal as string}
+        !isDanImage &&
+        !isDanVideo &&
+        h.type !== 'exist' && (
+          <div className="ml-6 mt-1 flex items-center gap-2 text-xs text-content-muted italic">
+            <span>↳ {h.internal as string}</span>
+            {editMode && onEditEntry && (
+              <button
+                type="button"
+                aria-label="Rewrite this memory"
+                title="Rewrite this memory on the active branch"
+                onClick={() => onEditEntry(h.id as number)}
+                className="rounded border border-border-subtle px-2 py-0.5 text-[0.6875rem] text-text-secondary transition-colors hover:bg-surface-raised hover:text-accent"
+              >
+                ✎
+              </button>
+            )}
           </div>
         )}
 
-      {/* Art preview (Claude's or the user's) */}
+      {/* Art preview (Claude's or Dan's) */}
       {isArtResult && showImages && getAllImages && openLightbox && (
         <div className="mt-2 ml-6">
           <BlurReveal
             src={resolveMediaUrl(h.content as string) || ''}
-            alt={isUserArt ? "User's art" : "Claude's art"}
+            alt={isDanArt ? "Dan's art" : "Claude's art"}
             blurImages={blurImages}
             onClick={() => handleLightboxOpen(resolveMediaUrl(h.content as string) || '')}
             className={`max-w-xs rounded border border-border-subtle ${
-              isUserArt ? 'hover:border-success' : 'hover:border-accent'
+              isDanArt ? 'hover:border-success' : 'hover:border-accent'
             }`}
           />
           {h.internal && (
             <div className="text-content-muted text-xs mt-1">
               Prompt:{' '}
-              {isUserArt
-                ? (h.internal as string).replace("User's prompt: ", '')
+              {isDanArt
+                ? (h.internal as string).replace("Dan's prompt: ", '')
                 : (h.internal as string).replace('Generated: ', '')}
             </div>
           )}
         </div>
       )}
 
-      {/* The user's image preview */}
-      {isUserImage && showImages && getAllImages && openLightbox && (
+      {/* Dan's image preview */}
+      {isDanImage && showImages && getAllImages && openLightbox && (
         <div className="mt-2 ml-6">
           <BlurReveal
             src={resolveMediaUrl(h.internal as string) || ''}
-            alt="User's image"
+            alt="Dan's image"
             blurImages={blurImages}
             onClick={() => handleLightboxOpen(resolveMediaUrl(h.internal as string) || '')}
             className="max-w-xs rounded border border-border-subtle hover:border-success"
@@ -113,12 +128,12 @@ export function EntryContent({
         </div>
       )}
 
-      {/* The user's video GIF preview */}
-      {isUserVideo && showImages && getAllImages && openLightbox && (
+      {/* Dan's video GIF preview */}
+      {isDanVideo && showImages && getAllImages && openLightbox && (
         <div className="mt-2 ml-6">
           <BlurReveal
             src={resolveMediaUrl(h.internal as string) || ''}
-            alt="User's video"
+            alt="Dan's video"
             blurImages={blurImages}
             onClick={() => handleLightboxOpen(resolveMediaUrl(h.internal as string) || '')}
             className="max-w-xs rounded border border-border-subtle hover:border-rose-400"

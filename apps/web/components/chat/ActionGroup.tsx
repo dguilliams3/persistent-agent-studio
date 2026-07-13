@@ -82,9 +82,19 @@ export interface ActionGroupProps {
   attract?: boolean;
   /** Called on first expand (used to retire the attract glow). */
   onFirstOpen?: () => void;
+  /** Enables inline rewrite pencils for every collapsed history row. */
+  editMode?: boolean;
+  /** Opens the inline rewrite editor for a specific history row. */
+  onEditEntry?: (entryId: number) => void;
 }
 
-export function ActionGroup({ entries, attract = false, onFirstOpen }: ActionGroupProps) {
+export function ActionGroup({
+  entries,
+  attract = false,
+  onFirstOpen,
+  editMode = false,
+  onEditEntry,
+}: ActionGroupProps) {
   const [opened, setOpened] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const showAttract = attract && !opened;
@@ -159,6 +169,8 @@ export function ActionGroup({ entries, attract = false, onFirstOpen }: ActionGro
             <HistoryEntryRow
               key={entry.id}
               entry={entry as unknown as Record<string, unknown>}
+              editMode={editMode}
+              onEditEntry={onEditEntry}
             />
           ))}
         </div>

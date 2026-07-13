@@ -17,7 +17,7 @@
  *
  * **Synthetic Memories** (CRUD):
  * - Inject new memories that don't exist in canonical history
- * - Support text and image types (art_result, user_art)
+ * - Support text and image types (art_result, dan_art)
  * - Per-branch isolation via memory_overrides table
  *
  * **Personality Export/Import**:
@@ -206,7 +206,7 @@ export interface EditorSlice {
   includeMemories: (memories: MemoryRef[]) => Promise<void>;
   openEditModal: (memory: EditableMemory) => void;
   closeEditModal: () => void;
-  saveMemoryEdit: () => Promise<void>;
+  saveMemoryEdit: (branchName?: string) => Promise<void>;
   excludeMemory: (table: string, id: number) => Promise<void>;
   deleteMemoryPermanently: (id: number) => Promise<void>;
 
@@ -898,11 +898,12 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
   },
 
   /**
-   * @description Save edited memory fields
-   *
-   * Applies memory edits via memory_overrides (non-destructive).
-   * Creates override record for content/type/internal edits in active branch.
-   * Closes modal and refetches data on success.
+ * @description Save edited memory fields
+ *
+ * Applies memory edits via memory_overrides (non-destructive).
+ * Creates override record for content/type/internal edits in active branch.
+ * Closes modal and refetches data on success.
+ * When provided, branchName selects the edit branch to activate before write.
    *
    * @upstream Called by: Edit modal save button
    * @downstream Calls: api.post(/memory/edit), closeEditModal, fetchAll, addLog
@@ -912,15 +913,15 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
    * @example
    * setEditContent('New content');
    * setEditType('observation');
-   * await saveMemoryEdit();
-   * // Memory_override created, modal closed, data refetched
+   * await saveMemoryEdit('edit-20260713-1320');
+   * // Memory_override created on that branch, modal closed, data refetched
    *
    * @tests apps/web/store/slices/__tests__/editor.test.js
    *   - "memory editing - saveMemoryEdit" (validation, API call, modal close, state refresh)
    *
    * @note Non-destructive: original memory unchanged, override applies only to active branch
    */
-  saveMemoryEdit: async () => {
+  saveMemoryEdit: async (branchName?: string) => {
     const {
       addLog,
       editingMemory,
@@ -944,6 +945,7 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
         content: editContent,
         type: editType,
         internal: editInternal,
+        branchName,
       });
       addLog("✅ Memory edited");
       closeEditModal();
@@ -1081,7 +1083,7 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
    * @tests apps/web/store/slices/__tests__/editor.test.js
    *   - "synthetic memories - openSyntheticEdit" (art type detection, image loading)
    *
-   * @note Art types (art_result, user_art) with base64 content are stored as image object in state
+   * @note Art types (art_result, dan_art) with base64 content are stored as image object in state
    */
   openSyntheticEdit: (synthetic: SyntheticMemory) => {
     const {
@@ -1095,7 +1097,7 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
     setEditingSynthetic(synthetic);
     const memType = synthetic.type || synthetic.memory_type || "thought";
     setSyntheticType(memType);
-    const isArtType = memType === "art_result" || memType === "user_art";
+    const isArtType = memType === "art_result" || memType === "dan_art";
     if (isArtType && synthetic.content?.startsWith("data:image")) {
       setSyntheticImage({ base64: synthetic.content, name: "existing-image" });
       setSyntheticContent("");
@@ -1146,7 +1148,7 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
    * @description Create or update a synthetic memory
    *
    * Synthetic memories are injected into a specific branch only (per-branch isolation).
-   * For art types (art_result, user_art), uses syntheticImage.base64 as content.
+   * For art types (art_result, dan_art), uses syntheticImage.base64 as content.
    * For text types, uses syntheticContent.
    * Creates new synthetic if editingSynthetic is null, updates if it exists.
    *
@@ -1186,7 +1188,7 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
     } = get();
 
     const isArtType =
-      syntheticType === "art_result" || syntheticType === "user_art";
+      syntheticType === "art_result" || syntheticType === "dan_art";
     const content = isArtType ? syntheticImage?.base64 : syntheticContent;
 
     if (!content || (typeof content === "string" && !content.trim())) {

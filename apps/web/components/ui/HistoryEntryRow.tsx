@@ -9,6 +9,7 @@
  * @upstream Called by: ChatTab, AxisBuilderView
  * @downstream Calls: EntryMetadata, EntryContent, EntryActions (VoicePlayback, SelectionCheckbox, PoleIndicator), historyUtils
  * @pattern Composition — container orchestrates sub-components, passes classified props down
+ * Tested by: `apps/web/components/ui/__tests__/HistoryEntryRow.test.tsx`
  */
 
 import { Icon } from './Icon';
@@ -35,6 +36,8 @@ interface HistoryEntryRowProps {
   onToggleSelect?: (id: number) => void;
   poleIndicator?: 'A' | 'B' | null;
   className?: string;
+  editMode?: boolean;
+  onEditEntry?: (entryId: number) => void;
 }
 
 export function HistoryEntryRow({
@@ -55,6 +58,8 @@ export function HistoryEntryRow({
   onToggleSelect,
   poleIndicator = null,
   className = '',
+  editMode = false,
+  onEditEntry,
 }: HistoryEntryRowProps) {
   const timeFormatter = formatTimeProp || formatTime;
   const iconGetter = getHistoryIcon || ((type: string) => TYPE_ICONS[type] || 'Circle');
@@ -63,14 +68,14 @@ export function HistoryEntryRow({
   // Classify entry type for rendering
   const hasMediaContent = (h.content as string)?.startsWith('data:image') || (h.content as string)?.startsWith('https://');
   const hasMediaInternal = (h.internal as string)?.startsWith('data:image') || (h.internal as string)?.startsWith('https://');
-  const isArtResult = (h.type === 'art_result' || h.type === 'user_art') && hasMediaContent;
-  const isUserArt = h.type === 'user_art' && hasMediaContent;
-  const isUserImage = h.type === 'user_message' && hasMediaInternal;
-  const isUserVideo = h.type === 'user_video' && hasMediaInternal;
+  const isArtResult = (h.type === 'art_result' || h.type === 'dan_art') && hasMediaContent;
+  const isDanArt = h.type === 'dan_art' && hasMediaContent;
+  const isDanImage = (h.type === 'dan_message' || h.type === 'user_message') && hasMediaInternal;
+  const isDanVideo = h.type === 'dan_video' && hasMediaInternal;
   const isParseError = h.type === 'parse_error';
 
-  // Match voice entry for message_to_user
-  const matchingVoice = h.type === 'message_to_user' && voiceHistory.find((v) => {
+  // Match voice entry for message_to_dan
+  const matchingVoice = h.type === 'message_to_dan' && voiceHistory.find((v) => {
     if (!v.created_at || !h.created_at) return false;
     const timeDiff = Math.abs(new Date(v.created_at as string).getTime() - new Date(h.created_at as string).getTime());
     return timeDiff < 60000 && (h.content as string)?.includes((v.text as string)?.slice(0, 50));
@@ -123,14 +128,26 @@ export function HistoryEntryRow({
 
       {/* Type label */}
       <span className={`font-medium mr-1 ${
-        h.type === 'user_message' ? 'text-success'
-          : h.type === 'message_to_user' ? 'text-accent'
+        h.type === 'dan_message' || h.type === 'user_message' ? 'text-success'
+          : h.type === 'message_to_dan' ? 'text-accent'
           : h.type === 'exist' ? 'text-content-muted'
           : isParseError ? 'text-danger'
           : 'text-content-secondary'
       }`}>
         {labelGetter(h.type as string)}:
       </span>
+
+      {mode === 'display' && editMode && onEditEntry && !h.internal && (
+        <button
+          type="button"
+          aria-label="Rewrite this memory"
+          title="Rewrite this memory on the active branch"
+          onClick={() => onEditEntry(h.id as number)}
+          className="mr-1 rounded border border-border-subtle px-2 py-0.5 text-[0.6875rem] text-text-secondary transition-colors hover:bg-surface-raised hover:text-accent"
+        >
+          ✎
+        </button>
+      )}
 
       {mode === 'selectable' && poleIndicator && <PoleIndicator pole={poleIndicator} />}
 
@@ -144,10 +161,12 @@ export function HistoryEntryRow({
 
       <EntryContent
         entry={h}
+        editMode={editMode}
+        onEditEntry={onEditEntry}
         isArtResult={isArtResult}
-        isUserArt={isUserArt}
-        isUserImage={isUserImage}
-        isUserVideo={isUserVideo}
+        isDanArt={isDanArt}
+        isDanImage={isDanImage}
+        isDanVideo={isDanVideo}
         isParseError={isParseError}
         showImages={showImages}
         blurImages={blurImages}

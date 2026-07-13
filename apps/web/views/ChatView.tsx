@@ -134,6 +134,10 @@ export function ChatView() {
   ) as () => Promise<void>;
   const clearError = useAppStore((state) => state.clearError) as () => void;
   const addLog = useAppStore((state) => state.addLog) as (message: string) => void;
+  const activeBranch = useAppStore((state) => state.activeBranch) as string;
+  const setActiveBranch = useAppStore((state) => state.setActiveBranch) as (
+    branch: string,
+  ) => void;
   const handleImageSelect = useAppStore(
     (state) => state.handleImageSelect,
   ) as (event: { target: { files: FileList | File[] } }) => void;
@@ -161,7 +165,6 @@ export function ChatView() {
    * otherwise injected memories are invisible and edited messages show
    * their original text.
    */
-  const [activeBranch, setActiveBranchName] = useState('main');
   const [synthetics, setSynthetics] = useState<SyntheticMemoryRow[]>([]);
   const [overrides, setOverrides] = useState<MemoryOverrideRow[]>([]);
   const [editMode, setEditMode] = useState(false);
@@ -178,14 +181,14 @@ export function ChatView() {
           overrides?: MemoryOverrideRow[];
         }>,
       ]);
-      setActiveBranchName(b.activeBranch || 'main');
+      setActiveBranch(b.activeBranch || 'main');
       setSynthetics(syn.synthetics || []);
       setOverrides(ov.overrides || []);
     } catch (error: unknown) {
       addLog(`Error: branch view degraded to canonical: ${error instanceof Error ? error.message : String(error)}`);
       /* branch layer degrades to the canonical thread */
     }
-  }, []);
+  }, [addLog, setActiveBranch]);
 
   useEffect(() => {
     void refreshBranchState();
@@ -199,16 +202,11 @@ export function ChatView() {
     return () => window.removeEventListener('memory-overrides-changed', handleMemoryOverridesChanged);
   }, [refreshBranchState]);
 
-  const fetchHistoryAction = useAppStore((s) => s.fetchHistory) as
-    | (() => Promise<void>)
-    | undefined;
-
   /** After a branch swap / injection / rewrite: refetch everything. */
   const handleBranchChanged = useCallback(() => {
     setEditingEntryId(null);
     void refreshBranchState();
-    void fetchHistoryAction?.();
-  }, [refreshBranchState, fetchHistoryAction]);
+  }, [refreshBranchState]);
 
   /**
    * Thread = canonical history merged with the active branch's synthetics
@@ -410,7 +408,13 @@ export function ChatView() {
       );
     }
     if (segment.kind === 'actions') {
-      return <ActionGroup entries={segment.entries} />;
+      return (
+        <ActionGroup
+          entries={segment.entries}
+          editMode={editMode}
+          onEditEntry={(entryId) => setEditingEntryId(entryId)}
+        />
+      );
     }
     const entry = segment.entry as ThreadEntry;
     const isUser = USER_MESSAGE_TYPES.has(entry.type);
@@ -422,6 +426,7 @@ export function ChatView() {
           entryId={entry.id}
           initialContent={entry.content}
           isUser={isUser}
+          activeBranch={activeBranch}
           onSaved={handleBranchChanged}
           onCancel={() => setEditingEntryId(null)}
         />

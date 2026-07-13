@@ -44,6 +44,15 @@ import {
  */
 export const AUTO_EDIT_BRANCH = 'edits';
 
+function formatEditableBranchName(referenceDate = new Date()): string {
+  const year = referenceDate.getUTCFullYear();
+  const month = String(referenceDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(referenceDate.getUTCDate()).padStart(2, '0');
+  const hour = String(referenceDate.getUTCHours()).padStart(2, '0');
+  const minute = String(referenceDate.getUTCMinutes()).padStart(2, '0');
+  return `edit-${year}${month}${day}-${hour}${minute}`;
+}
+
 /**
  * Returns a branch that edits will actually apply to. If already on a
  * non-main branch, that one. If on main (or nothing active), diverts to
@@ -53,28 +62,32 @@ export const AUTO_EDIT_BRANCH = 'edits';
  */
 export async function ensureEditableBranch(
   db: DrizzleD1,
+  requestedBranchName?: string,
 ): Promise<{ branch: { id: number; name: string } | null; error?: string; switchedTo?: string }> {
   const active = await getActiveBranch(db);
   if (active && active.name !== 'main') {
     return { branch: { id: active.id, name: active.name } };
   }
-  let target = await getBranchByName(db, AUTO_EDIT_BRANCH);
+  const branchName =
+    requestedBranchName?.trim() ||
+    formatEditableBranchName();
+  let target = await getBranchByName(db, branchName);
   if (!target) {
     const created = await createBranch(
       db,
-      AUTO_EDIT_BRANCH,
+      branchName,
       'Auto-created for edits made from main',
       'main',
     );
     if (!created.success) {
       return { branch: null, error: created.error || 'Failed to create edit branch' };
     }
-    target = await getBranchByName(db, AUTO_EDIT_BRANCH);
+    target = await getBranchByName(db, branchName);
   }
   if (!target) {
     return { branch: null, error: 'Edit branch unavailable after creation' };
   }
-  await activateBranch(db, AUTO_EDIT_BRANCH);
+  await activateBranch(db, branchName);
   return { branch: { id: target.id, name: target.name }, switchedTo: target.name };
 }
 
@@ -261,8 +274,8 @@ export async function handleGetOverrides(db: DrizzleD1) {
   return { overrides, branchId: branch.id, branchName: branch.name };
 }
 
-export async function handleEditMemory(db: DrizzleD1, body: { table?: string; id?: number; content?: string; type?: string; internal?: string }) {
-  const { table, id, content, type, internal } = body;
+export async function handleEditMemory(db: DrizzleD1, body: { table?: string; id?: number; content?: string; type?: string; internal?: string; branchName?: string }) {
+  const { table, id, content, type, internal, branchName } = body;
   if (!table || !id) {
     return { error: 'Table and id are required', status: 400 };
   }
@@ -270,7 +283,7 @@ export async function handleEditMemory(db: DrizzleD1, body: { table?: string; id
     return { error: 'At least one of content, type, or internal is required', status: 400 };
   }
 
-  const { branch, error: branchError, switchedTo } = await ensureEditableBranch(db);
+  const { branch, error: branchError, switchedTo } = await ensureEditableBranch(db, branchName);
   if (branchError || !branch) {
     return { error: branchError || 'No active branch found', status: 500 };
   }

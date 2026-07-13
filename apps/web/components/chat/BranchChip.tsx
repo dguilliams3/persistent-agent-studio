@@ -15,6 +15,7 @@
  *
  * @upstream Called by: ChatView header row
  * @downstream Calls: api /branches, /branches/:name/activate, POST /branches
+ * Tested by: `apps/web/components/chat/__tests__/BranchChip.test.tsx`
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -53,6 +54,9 @@ export function BranchChip({
   const [newName, setNewName] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const addLog = useAppStore((state) => state.addLog) as (message: string) => void;
+  const switchBranch = useAppStore((state) => state.switchBranch) as (
+    branchName: string,
+  ) => Promise<void>;
 
   const refresh = useCallback(async () => {
     try {
@@ -62,7 +66,7 @@ export function BranchChip({
       addLog(`Error: Failed to load branches: ${error instanceof Error ? error.message : String(error)}`);
       /* chip degrades to label-only */
     }
-  }, []);
+  }, [addLog]);
 
   useEffect(() => {
     void refresh();
@@ -84,7 +88,7 @@ export function BranchChip({
     if (name === activeBranch || busy) return;
     setBusy(true);
     try {
-      await api.put(`/branches/${encodeURIComponent(name)}/activate`);
+      await switchBranch(name);
       onBranchChanged();
       await refresh();
       setOpen(false);
@@ -102,7 +106,7 @@ export function BranchChip({
     setBusy(true);
     try {
       await api.post('/branches', { name });
-      await api.put(`/branches/${encodeURIComponent(name)}/activate`);
+      await switchBranch(name);
       setNewName('');
       setCreating(false);
       onBranchChanged();
