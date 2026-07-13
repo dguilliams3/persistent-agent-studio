@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { PersonaSelector as SharedPersonaSelector } from '@persistence/ui';
 import { useAppStore } from '../../store';
+import { CreatePersonaModal } from './CreatePersonaModal';
 
 /**
  * Props for the web-specific PersonaSelector wrapper.
@@ -40,7 +41,6 @@ export function PersonaSelector({ className = '', showCreateButton = false }: We
   const personas = useAppStore((state) => state.personas);
   const activePersona = useAppStore((state) => state.activePersona);
   const switchPersona = useAppStore((state) => state.switchPersona);
-  const createPersona = useAppStore((state) => state.createPersona);
 
   const [isSwitching, setIsSwitching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -60,26 +60,6 @@ export function PersonaSelector({ className = '', showCreateButton = false }: We
     }
   };
 
-  /**
-   * Opens browser prompt dialogs to collect a name and admin password,
-   * then calls createPersona. Sets isCreating to disable the button during the async operation.
-   * Early-returns without action if the user cancels either prompt.
-   */
-  const handleCreate = async () => {
-    const name = prompt('Enter name for new persona:');
-    if (!name) return;
-
-    const password = prompt('Enter admin password:');
-    if (!password) return;
-
-    setIsCreating(true);
-    try {
-      await createPersona(name, password);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {activePersona ? (
@@ -93,15 +73,17 @@ export function PersonaSelector({ className = '', showCreateButton = false }: We
         <span style={{ color: 'rgb(var(--ui-text-muted))', fontSize: '0.875rem' }}>Loading...</span>
       )}
       {showCreateButton && (
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={isCreating}
-          className="text-xs px-2 py-1 text-accent hover:bg-accent/10 rounded transition-colors disabled:opacity-50"
-          title="Create new persona"
-        >
-          {isCreating ? '...' : '+ New'}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            className="text-xs px-2 py-1 text-accent hover:bg-accent/10 rounded transition-colors"
+            title="Create new persona"
+          >
+            + New
+          </button>
+          <CreatePersonaModal isOpen={isCreating} onClose={() => setIsCreating(false)} />
+        </>
       )}
     </div>
   );

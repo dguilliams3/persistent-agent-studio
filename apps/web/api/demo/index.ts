@@ -153,6 +153,19 @@ function demoGet(endpoint: string): Record<string, unknown> {
     }
     case '/state':
       return SPECIMEN_STATE;
+    // Model registry fixture — same shape as the worker's D1-backed GET /models,
+    // so the CreatePersonaModal's Mind picker works in the exhibit.
+    case '/models':
+      return {
+        models: [
+          { id: 'claude-haiku-4-5', label: 'Haiku (Fast)', provider: 'anthropic', tier: 'fast' },
+          { id: 'claude-sonnet-4-6', label: 'Sonnet (Balanced)', provider: 'anthropic', tier: 'balanced' },
+          { id: 'claude-opus-4-6', label: 'Opus (Deep)', provider: 'anthropic', tier: 'deep' },
+        ],
+        defaultId: 'claude-opus-4-6',
+        selectedModel: 'claude-opus-4-6',
+        source: 'demo',
+      };
     case '/personas':
       return { personas: demoPersonas };
     case '/personas/active':
