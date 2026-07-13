@@ -204,6 +204,35 @@ export async function createPersona(
   return result[0].id;
 }
 
+/**
+ * @description Adds fractional cycle cost to a persona's running spend total.
+ *
+ * Cost governance Phase 2 (RUN-20260712-2013): the cycles schema has long
+ * documented that per-cycle `estimatedCostCents` rolls up into
+ * `personas.total_cost_cents`; this helper makes that invariant real. The
+ * loop is effectively a single writer per persona today, so the additive update
+ * is acceptable without stronger locking at this layer.
+ *
+ * @upstream Called by: `packages/runtime/src/orchestrator/response.ts`
+ * @downstream Calls: Drizzle personas update
+ * @param amountCents - Fractional cents to add to the persona total
+ */
+export async function incrementPersonaCostCents(
+  db: DrizzleD1,
+  amountCents: number,
+  personaId?: number,
+): Promise<void> {
+  if (!Number.isFinite(amountCents) || amountCents === 0) return;
+  const targetPersonaId = personaId ?? await getActivePersonaId(db);
+  await db
+    .update(personas)
+    .set({
+      totalCostCents: sql`coalesce(${personas.totalCostCents}, 0) + ${amountCents}`,
+      updatedAt: sql`datetime('now')`,
+    })
+    .where(eq(personas.id, targetPersonaId));
+}
+
 // ============================================================================
 // PERSONA FORKING
 // ============================================================================

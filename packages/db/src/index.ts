@@ -41,6 +41,7 @@ export {
   derivePersonaSlug,
   resetPersonaCache,
   forkPersona,
+  incrementPersonaCostCents,
 } from "./personas";
 
 export { type DrizzleD1, createDrizzleClient } from "./client";

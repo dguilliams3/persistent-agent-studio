@@ -23,6 +23,7 @@ import {
   logHistory,
   updateCycleMetrics,
   calculateCostCents,
+  incrementPersonaCostCents,
 } from "@persistence/db";
 import { parseClaudeResponse } from "@persistence/llm";
 import type {
@@ -173,4 +174,5 @@ async function updateAnthropicMetrics(
     estimatedCostCents: costCents,
     status: "completed",
   });
+  await incrementPersonaCostCents(db, costCents);
 }
