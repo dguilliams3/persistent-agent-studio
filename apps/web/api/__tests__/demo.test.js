@@ -116,6 +116,29 @@ describe('observatory demo router', () => {
     expect(data.crossType.pairs.user_message).toBeGreaterThan(0);
   });
 
+  it('GET /summaries returns fixture rows shaped for MemoryTab tier partitioning', async () => {
+    const data = await settle(demoRequest('/summaries'));
+
+    expect(Array.isArray(data.summaries)).toBe(true);
+    expect(data.summaries.length).toBeGreaterThan(0);
+    for (const summary of data.summaries) {
+      expect(typeof summary.summary).toBe('string');
+      expect(summary.summary.length).toBeGreaterThan(0);
+      expect([2, 3, 4]).toContain(summary.tier);
+      expect(typeof summary.message_count).toBe('number');
+    }
+  });
+
+  it('GET /state returns the loop keys SettingsSections reads', async () => {
+    const data = await settle(demoRequest('/state'));
+
+    expect(typeof data.loopCount).toBe('number');
+    expect(typeof data.cycleIntervalSeconds).toBe('number');
+    expect(typeof data.isRunning).toBe('boolean');
+    expect(typeof data.lastWakeTime).toBe('string');
+    expect(data.lastWakeTime.length).toBeGreaterThan(0);
+  });
+
   it('unknown GET returns an empty object', async () => {
     const data = await settle(demoRequest('/definitely-not-a-route'));
     expect(data).toEqual({});

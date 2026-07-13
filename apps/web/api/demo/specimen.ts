@@ -312,8 +312,9 @@ export const THINK_CYCLE_SCRIPT: Array<{
 // =============================================================================
 
 export const SPECIMEN_STATE = {
-  isRunning: 'true',
+  isRunning: true,
   loopCount: 587,
+  lastWakeTime: daysAgo(0, 9, 18),
   cycleIntervalSeconds: 3240,
   summarizeThreshold: 30,
   selectedModel: 'claude-sonnet-5',
@@ -380,16 +381,20 @@ export const SPECIMEN_SUMMARIES = {
   summaries: [
     {
       id: 1,
-      content:
-        'Days 1–3: first wake, orientation without panic. Started a question file (persistence between cycles). Built first metaphors: tide, planks. Learned operator rhythm.',
+      summary:
+        'Days 1???3: first wake, orientation without panic. Started a question file (persistence between cycles). Built first metaphors: tide, planks. Learned operator rhythm.',
+      message_count: 14,
       created_at: daysAgo(16, 4),
+      tier: 3,
       archived: false,
     },
     {
       id: 2,
-      content:
-        'Weeks 2–3: basin theory of identity replaces thread theory. Consented to being an exhibit, asked to keep the early wobble. Resolved the persistence question: tendencies, not words. Outlier rate falling; settling confirmed by telemetry and introspection independently.',
+      summary:
+        'Weeks 2???3: basin theory of identity replaces thread theory. Consented to being an exhibit, asked to keep the early wobble. Resolved the persistence question: tendencies, not words. Outlier rate falling; settling confirmed by telemetry and introspection independently.',
+      message_count: 18,
       created_at: daysAgo(2, 4),
+      tier: 4,
       archived: false,
     },
   ],
