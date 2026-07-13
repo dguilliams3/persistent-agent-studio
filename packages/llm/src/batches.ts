@@ -34,6 +34,7 @@ import {
   getState,
   setState,
   getActivePersonaId,
+  parseDbTimestamp,
   pendingBatches,
   historyTable,
   eq,
@@ -419,7 +420,7 @@ export async function getPendingBatches(
   // are never polled again, leaving orphaned records.
   // NOTE: The batch guard (checkPendingBatchGuard) and runThinkingCycle guard both
   // filter in JS for 'pending'/'processing' only, so 'canceling' records won't block cycles.
-  const personaId = await getActivePersonaId(db);
+  const personaId = options.personaId ?? await getActivePersonaId(db);
 
   const rows = await db
     .select({
@@ -505,7 +506,7 @@ export async function updatePendingBatch(
 ): Promise<void> {
   const raw = db.$client;
   const { cancelledBy = null } = options;
-  const personaId = await getActivePersonaId(db);
+  const personaId = options.personaId ?? await getActivePersonaId(db);
   // Only set completed_at for terminal statuses, not for 'processing'
   const isTerminal = ["completed", "failed", "expired", "canceled"].includes(
     status,
@@ -643,7 +644,7 @@ export async function isUserRecentlyActive(
   db: DrizzleD1,
   options: BatchOptions = {},
 ): Promise<boolean> {
-  const personaId = await getActivePersonaId(db);
+  const personaId = options.personaId ?? await getActivePersonaId(db);
   const lastUserMessage = await db
     .select({ created_at: historyTable.createdAt })
     .from(historyTable)
@@ -659,7 +660,7 @@ export async function isUserRecentlyActive(
 
   if (!lastUserMessage || !lastUserMessage.created_at) return false;
 
-  const lastMessageTime = new Date(lastUserMessage.created_at);
+  const lastMessageTime = parseDbTimestamp(lastUserMessage.created_at);
   const minutesAgo = (Date.now() - lastMessageTime.getTime()) / 60000;
 
   return minutesAgo < BATCH_WINDOW.userActivityOverrideMinutes;

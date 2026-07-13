@@ -416,6 +416,16 @@ describe('Batch CRUD Operations', () => {
       expect(results[0].duration_seconds).toBe(3600);
       expect(results[0].status).toBe('canceling');
     });
+
+    it('honors an explicit personaId instead of silently re-reading the active persona', async () => {
+      vi.mocked(getActivePersonaId).mockResolvedValueOnce(99);
+      mockDb._mockSelectAll.mockResolvedValueOnce([]);
+
+      await getPendingBatches(mockDb as any, { personaId: 2 });
+
+      expect(getActivePersonaId).not.toHaveBeenCalled();
+      expect(mockDb._mockSelectWhere).toHaveBeenCalledOnce();
+    });
   });
 
   describe('updatePendingBatch()', () => {
@@ -557,7 +567,7 @@ describe('Batch Window Timing', () => {
       expect(result).toBe(false);
     });
 
-    it('returns true when the user messaged within override window', async () => {
+    it('returns true when Dan messaged within override window', async () => {
       const recentTime = new Date(Date.now() - 5 * 60000).toISOString(); // 5 min ago
       mockDb._mockSelectGet.mockResolvedValueOnce({ created_at: recentTime });
 
@@ -566,7 +576,7 @@ describe('Batch Window Timing', () => {
       expect(result).toBe(true);
     });
 
-    it('returns false when the user last messaged outside override window', async () => {
+    it('returns false when Dan last messaged outside override window', async () => {
       const oldTime = new Date(Date.now() - 60 * 60000).toISOString(); // 60 min ago
       mockDb._mockSelectGet.mockResolvedValueOnce({ created_at: oldTime });
 
@@ -585,6 +595,17 @@ describe('Batch Window Timing', () => {
       const result = await isUserRecentlyActive(mockDb as any);
 
       expect(result).toBe(true);
+    });
+
+    it('honors an explicit personaId instead of silently re-reading the active persona', async () => {
+      const recentTime = new Date(Date.now() - 5 * 60000).toISOString();
+      vi.mocked(getActivePersonaId).mockResolvedValueOnce(77);
+      mockDb._mockSelectGet.mockResolvedValueOnce({ created_at: recentTime });
+
+      const result = await isUserRecentlyActive(mockDb as any, { personaId: 2 });
+
+      expect(result).toBe(true);
+      expect(getActivePersonaId).not.toHaveBeenCalled();
     });
   });
 });

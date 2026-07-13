@@ -24,13 +24,21 @@
  *   - Drizzle query builder operations
  */
 
-import { eq, desc, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { DrizzleD1 } from '../client';
+import { getActivePersonaId, type PersonaOptions } from '../personas';
 import { memoryBranches } from '../schema/memory-branches';
 import { memoryOverrides } from '../schema/memory-overrides';
 import { syntheticMemories } from '../schema/synthetic-memories';
 import type { Branch } from './Branch';
 import type { BranchResult } from './BranchResult';
+
+async function resolvePersonaId(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<number> {
+  return options.personaId ?? await getActivePersonaId(db);
+}
 
 /**
  * @description Get all memory branches
@@ -49,7 +57,11 @@ import type { BranchResult } from './BranchResult';
  * const branches = await getBranches(db);
  * // Returns: [{ id: 1, name: 'main', is_active: 1, ... }, ...]
  */
-export async function getBranches(db: DrizzleD1): Promise<Branch[]> {
+export async function getBranches(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<Branch[]> {
+  const personaId = await resolvePersonaId(db, options);
   const rows = await db.select({
     id: memoryBranches.id,
     name: memoryBranches.name,
@@ -60,6 +72,7 @@ export async function getBranches(db: DrizzleD1): Promise<Branch[]> {
     updated_at: memoryBranches.updatedAt,
   })
     .from(memoryBranches)
+    .where(eq(memoryBranches.personaId, personaId))
     .orderBy(desc(memoryBranches.isActive), desc(memoryBranches.createdAt))
     .all();
   return rows as Branch[];
@@ -84,7 +97,11 @@ export async function getBranches(db: DrizzleD1): Promise<Branch[]> {
  * const activeBranch = await getActiveBranch(db);
  * // Returns: { id: 1, name: 'main', is_active: 1, ... } or null
  */
-export async function getActiveBranch(db: DrizzleD1): Promise<Branch | null> {
+export async function getActiveBranch(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<Branch | null> {
+  const personaId = await resolvePersonaId(db, options);
   const row = await db.select({
     id: memoryBranches.id,
     name: memoryBranches.name,
@@ -95,7 +112,7 @@ export async function getActiveBranch(db: DrizzleD1): Promise<Branch | null> {
     updated_at: memoryBranches.updatedAt,
   })
     .from(memoryBranches)
-    .where(eq(memoryBranches.isActive, 1))
+    .where(and(eq(memoryBranches.personaId, personaId), eq(memoryBranches.isActive, 1)))
     .limit(1)
     .get();
   return (row as Branch) ?? null;
@@ -118,7 +135,12 @@ export async function getActiveBranch(db: DrizzleD1): Promise<Branch | null> {
  * @example
  * const branch = await getBranchByName(db, 'experimental-v1');
  */
-export async function getBranchByName(db: DrizzleD1, name: string): Promise<Branch | null> {
+export async function getBranchByName(
+  db: DrizzleD1,
+  name: string,
+  options: PersonaOptions = {},
+): Promise<Branch | null> {
+  const personaId = await resolvePersonaId(db, options);
   const row = await db.select({
     id: memoryBranches.id,
     name: memoryBranches.name,
@@ -129,7 +151,7 @@ export async function getBranchByName(db: DrizzleD1, name: string): Promise<Bran
     updated_at: memoryBranches.updatedAt,
   })
     .from(memoryBranches)
-    .where(eq(memoryBranches.name, name))
+    .where(and(eq(memoryBranches.personaId, personaId), eq(memoryBranches.name, name)))
     .get();
   return (row as Branch) ?? null;
 }
@@ -160,23 +182,26 @@ export async function createBranch(
   db: DrizzleD1,
   name: string,
   description: string | null = null,
-  parentBranch: string | null = null
+  parentBranch: string | null = null,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   // Check if branch already exists
-  const existing = await getBranchByName(db, name);
+  const existing = await getBranchByName(db, name, options);
   if (existing) {
     return { success: false, error: `Branch '${name}' already exists` };
   }
 
   // If parent specified, verify it exists
   if (parentBranch) {
-    const parent = await getBranchByName(db, parentBranch);
+    const parent = await getBranchByName(db, parentBranch, options);
     if (!parent) {
       return { success: false, error: `Parent branch '${parentBranch}' not found` };
     }
   }
 
   await db.insert(memoryBranches).values({
+    personaId,
     name,
     description: description ?? null,
     parentBranch: parentBranch ?? null,
@@ -208,19 +233,25 @@ export async function createBranch(
  * const result = await activateBranch(db, 'experiment-1');
  * // Returns: { success: true, name: 'experiment-1' }
  */
-export async function activateBranch(db: DrizzleD1, name: string): Promise<BranchResult> {
-  const branch = await getBranchByName(db, name);
+export async function activateBranch(
+  db: DrizzleD1,
+  name: string,
+  options: PersonaOptions = {},
+): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
+  const branch = await getBranchByName(db, name, options);
   if (!branch) {
     return { success: false, error: `Branch '${name}' not found` };
   }
 
   // Deactivate all branches, then activate the specified one
   await db.update(memoryBranches)
-    .set({ isActive: 0, updatedAt: sql`datetime('now')` });
+    .set({ isActive: 0, updatedAt: sql`datetime('now')` })
+    .where(eq(memoryBranches.personaId, personaId));
 
   await db.update(memoryBranches)
     .set({ isActive: 1, updatedAt: sql`datetime('now')` })
-    .where(eq(memoryBranches.name, name));
+    .where(and(eq(memoryBranches.personaId, personaId), eq(memoryBranches.name, name)));
 
   return { success: true, name };
 }
@@ -246,12 +277,17 @@ export async function activateBranch(db: DrizzleD1, name: string): Promise<Branc
  * const result = await deleteBranch(db, 'experiment-1');
  * // Returns: { success: true, wasActive: false, nowActive: null }
  */
-export async function deleteBranch(db: DrizzleD1, name: string): Promise<BranchResult> {
+export async function deleteBranch(
+  db: DrizzleD1,
+  name: string,
+  options: PersonaOptions = {},
+): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   if (name === 'main') {
     return { success: false, error: "Cannot delete the 'main' branch" };
   }
 
-  const branch = await getBranchByName(db, name);
+  const branch = await getBranchByName(db, name, options);
   if (!branch) {
     return { success: false, error: `Branch '${name}' not found` };
   }
@@ -260,13 +296,13 @@ export async function deleteBranch(db: DrizzleD1, name: string): Promise<BranchR
 
   // Delete branch (cascades to overrides and synthetics via FK)
   await db.delete(memoryBranches)
-    .where(eq(memoryBranches.name, name));
+    .where(and(eq(memoryBranches.personaId, personaId), eq(memoryBranches.name, name)));
 
   // If deleted branch was active, activate main
   if (wasActive) {
     await db.update(memoryBranches)
       .set({ isActive: 1, updatedAt: sql`datetime('now')` })
-      .where(eq(memoryBranches.name, 'main'));
+      .where(and(eq(memoryBranches.personaId, personaId), eq(memoryBranches.name, 'main')));
   }
 
   return { success: true, wasActive, nowActive: wasActive ? 'main' : null };
@@ -298,20 +334,23 @@ export async function forkBranch(
   db: DrizzleD1,
   sourceName: string,
   newName: string,
-  description: string | null = null
+  description: string | null = null,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
-  const source = await getBranchByName(db, sourceName);
+  const personaId = await resolvePersonaId(db, options);
+  const source = await getBranchByName(db, sourceName, options);
   if (!source) {
     return { success: false, error: `Source branch '${sourceName}' not found` };
   }
 
-  const existing = await getBranchByName(db, newName);
+  const existing = await getBranchByName(db, newName, options);
   if (existing) {
     return { success: false, error: `Branch '${newName}' already exists` };
   }
 
   // Create new branch
   await db.insert(memoryBranches).values({
+    personaId,
     name: newName,
     description: description ?? `Forked from ${sourceName}`,
     parentBranch: sourceName,
@@ -321,7 +360,7 @@ export async function forkBranch(
   });
 
   // Get new branch ID
-  const newBranch = await getBranchByName(db, newName);
+  const newBranch = await getBranchByName(db, newName, options);
   if (!newBranch) {
     return { success: false, error: 'Failed to retrieve newly created branch' };
   }
@@ -329,11 +368,12 @@ export async function forkBranch(
   // Copy overrides from source branch
   const sourceOverrides = await db.select()
     .from(memoryOverrides)
-    .where(eq(memoryOverrides.branchId, source.id))
+    .where(and(eq(memoryOverrides.personaId, personaId), eq(memoryOverrides.branchId, source.id)))
     .all();
 
   for (const override of sourceOverrides) {
     await db.insert(memoryOverrides).values({
+      personaId,
       branchId: newBranch.id,
       targetTable: override.targetTable,
       targetId: override.targetId,
@@ -346,11 +386,12 @@ export async function forkBranch(
   // Copy synthetic memories from source branch
   const sourceSynthetics = await db.select()
     .from(syntheticMemories)
-    .where(eq(syntheticMemories.branchId, source.id))
+    .where(and(eq(syntheticMemories.personaId, personaId), eq(syntheticMemories.branchId, source.id)))
     .all();
 
   for (const synthetic of sourceSynthetics) {
     await db.insert(syntheticMemories).values({
+      personaId,
       branchId: newBranch.id,
       memoryType: synthetic.memoryType,
       content: synthetic.content,

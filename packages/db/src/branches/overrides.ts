@@ -27,6 +27,7 @@
 
 import { eq, and, asc, sql } from 'drizzle-orm';
 import type { DrizzleD1 } from '../client';
+import { getActivePersonaId, type PersonaOptions } from '../personas';
 import { memoryOverrides } from '../schema/memory-overrides';
 import { syntheticMemories } from '../schema/synthetic-memories';
 import type { MemoryOverride } from './MemoryOverride';
@@ -34,6 +35,13 @@ import type { EditData } from './EditData';
 import type { ReorderData } from './ReorderData';
 import type { BranchResult } from './BranchResult';
 import type { ResetResult } from './ResetResult';
+
+async function resolvePersonaId(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<number> {
+  return options.personaId ?? await getActivePersonaId(db);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VALIDATION FUNCTIONS
@@ -128,7 +136,12 @@ function validateReorderData(position: unknown): position is ReorderData {
  * const overrides = await getOverrides(db, 1);
  * // Returns: [{ id: 1, branch_id: 1, target_table: 'history', ... }, ...]
  */
-export async function getOverrides(db: DrizzleD1, branchId: number): Promise<MemoryOverride[]> {
+export async function getOverrides(
+  db: DrizzleD1,
+  branchId: number,
+  options: PersonaOptions = {},
+): Promise<MemoryOverride[]> {
+  const personaId = await resolvePersonaId(db, options);
   const rows = await db.select({
     id: memoryOverrides.id,
     branch_id: memoryOverrides.branchId,
@@ -139,7 +152,7 @@ export async function getOverrides(db: DrizzleD1, branchId: number): Promise<Mem
     created_at: memoryOverrides.createdAt,
   })
     .from(memoryOverrides)
-    .where(eq(memoryOverrides.branchId, branchId))
+    .where(and(eq(memoryOverrides.personaId, personaId), eq(memoryOverrides.branchId, branchId)))
     .orderBy(asc(memoryOverrides.createdAt))
     .all();
   return rows as MemoryOverride[];
@@ -166,8 +179,10 @@ export async function getOverridesForEntry(
   db: DrizzleD1,
   branchId: number,
   targetTable: string,
-  targetId: number
+  targetId: number,
+  options: PersonaOptions = {},
 ): Promise<MemoryOverride[]> {
+  const personaId = await resolvePersonaId(db, options);
   const rows = await db.select({
     id: memoryOverrides.id,
     branch_id: memoryOverrides.branchId,
@@ -179,6 +194,7 @@ export async function getOverridesForEntry(
   })
     .from(memoryOverrides)
     .where(and(
+      eq(memoryOverrides.personaId, personaId),
       eq(memoryOverrides.branchId, branchId),
       eq(memoryOverrides.targetTable, targetTable),
       eq(memoryOverrides.targetId, targetId)
@@ -217,10 +233,13 @@ export async function excludeMemory(
   db: DrizzleD1,
   branchId: number,
   targetTable: string,
-  targetId: number
+  targetId: number,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   try {
     await db.insert(memoryOverrides).values({
+      personaId,
       branchId,
       targetTable,
       targetId,
@@ -264,10 +283,13 @@ export async function includeMemory(
   db: DrizzleD1,
   branchId: number,
   targetTable: string,
-  targetId: number
+  targetId: number,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   await db.delete(memoryOverrides)
     .where(and(
+      eq(memoryOverrides.personaId, personaId),
       eq(memoryOverrides.branchId, branchId),
       eq(memoryOverrides.targetTable, targetTable),
       eq(memoryOverrides.targetId, targetId),
@@ -304,8 +326,10 @@ export async function editMemory(
   branchId: number,
   targetTable: string,
   targetId: number,
-  edits: EditData
+  edits: EditData,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   // Validate edit data structure
   if (!validateEditData(edits)) {
     return { success: false, error: 'Invalid edit data structure. Allowed fields: content (string), type (string), internal (string|null)' };
@@ -314,6 +338,7 @@ export async function editMemory(
   const overrideData = JSON.stringify(edits);
   try {
     await db.insert(memoryOverrides).values({
+      personaId,
       branchId,
       targetTable,
       targetId,
@@ -361,8 +386,10 @@ export async function reorderMemory(
   branchId: number,
   targetTable: string,
   targetId: number,
-  position: ReorderData
+  position: ReorderData,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   // Validate reorder data structure
   if (!validateReorderData(position)) {
     return { success: false, error: 'Invalid reorder data. Must have exactly one of: position (number >= 0) or timestamp_override (string)' };
@@ -371,6 +398,7 @@ export async function reorderMemory(
   const overrideData = JSON.stringify(position);
   try {
     await db.insert(memoryOverrides).values({
+      personaId,
       branchId,
       targetTable,
       targetId,
@@ -408,9 +436,14 @@ export async function reorderMemory(
  * const result = await removeOverride(db, 5);
  * // Returns: { success: true }
  */
-export async function removeOverride(db: DrizzleD1, overrideId: number): Promise<BranchResult> {
+export async function removeOverride(
+  db: DrizzleD1,
+  overrideId: number,
+  options: PersonaOptions = {},
+): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   await db.delete(memoryOverrides)
-    .where(eq(memoryOverrides.id, overrideId));
+    .where(and(eq(memoryOverrides.personaId, personaId), eq(memoryOverrides.id, overrideId)));
   return { success: true };
 }
 
@@ -433,23 +466,28 @@ export async function removeOverride(db: DrizzleD1, overrideId: number): Promise
  * const result = await resetBranch(db, 1);
  * // Returns: { success: true, overridesRemoved: 5, syntheticsRemoved: 2 }
  */
-export async function resetBranch(db: DrizzleD1, branchId: number): Promise<ResetResult> {
+export async function resetBranch(
+  db: DrizzleD1,
+  branchId: number,
+  options: PersonaOptions = {},
+): Promise<ResetResult> {
+  const personaId = await resolvePersonaId(db, options);
   // Count overrides before deleting
   const overrideCountResult = await db.select({ count: sql<number>`count(*)` })
     .from(memoryOverrides)
-    .where(eq(memoryOverrides.branchId, branchId))
+    .where(and(eq(memoryOverrides.personaId, personaId), eq(memoryOverrides.branchId, branchId)))
     .get();
 
   const syntheticCountResult = await db.select({ count: sql<number>`count(*)` })
     .from(syntheticMemories)
-    .where(eq(syntheticMemories.branchId, branchId))
+    .where(and(eq(syntheticMemories.personaId, personaId), eq(syntheticMemories.branchId, branchId)))
     .get();
 
   await db.delete(memoryOverrides)
-    .where(eq(memoryOverrides.branchId, branchId));
+    .where(and(eq(memoryOverrides.personaId, personaId), eq(memoryOverrides.branchId, branchId)));
 
   await db.delete(syntheticMemories)
-    .where(eq(syntheticMemories.branchId, branchId));
+    .where(and(eq(syntheticMemories.personaId, personaId), eq(syntheticMemories.branchId, branchId)));
 
   return {
     success: true,

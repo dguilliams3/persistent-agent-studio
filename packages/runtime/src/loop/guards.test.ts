@@ -508,12 +508,12 @@ describe("persona isolation", () => {
     );
   });
 
-  it("checkBatchGuard calls getPendingBatches (no persona options)", async () => {
+  it("checkBatchGuard passes persona options through to the batch lookup", async () => {
     mockGetPendingBatches.mockResolvedValue([]);
 
-    await checkBatchGuard(db);
+    await checkBatchGuard(db, personaOptions);
 
-    expect(mockGetPendingBatches).toHaveBeenCalledWith(db);
+    expect(mockGetPendingBatches).toHaveBeenCalledWith(db, personaOptions);
   });
 
   it("checkRunningGuard passes persona options to getState", async () => {
@@ -558,6 +558,7 @@ describe("persona isolation", () => {
     for (const call of mockGetState.mock.calls) {
       expect(call[2]).toEqual(personaOptions);
     }
+    expect(mockGetPendingBatches).toHaveBeenCalledWith(db, personaOptions);
   });
 
   it("runAllGuards uses empty options when personaOptions not provided", async () => {
@@ -577,6 +578,7 @@ describe("persona isolation", () => {
     for (const call of mockGetState.mock.calls) {
       expect(call[2]).toEqual({});
     }
+    expect(mockGetPendingBatches).toHaveBeenCalledWith(db, {});
   });
 });
 

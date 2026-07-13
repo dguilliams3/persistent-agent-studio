@@ -12,7 +12,7 @@
  * Key table: `synthetic_memories`
  * - id: Auto-incrementing primary key
  * - branch_id: Foreign key to memory_branches
- * - memory_type: Type ('thought', 'message_to_user', etc.)
+ * - memory_type: Type ('thought', 'message_to_dan', etc.)
  * - content: Memory content
  * - internal: Optional internal/subthought field
  * - position_timestamp: Explicit timestamp for ordering
@@ -28,6 +28,7 @@
 
 import { eq, sql, asc } from 'drizzle-orm';
 import type { DrizzleD1 } from '../client';
+import { getActivePersonaId, type PersonaOptions } from '../personas';
 import { syntheticMemories } from '../schema/synthetic-memories';
 import { history } from '../schema/history';
 import type { SyntheticMemory } from './SyntheticMemory';
@@ -35,6 +36,13 @@ import type { SyntheticResult } from './SyntheticResult';
 import type { SyntheticPlacement } from './SyntheticPlacement';
 import type { SyntheticUpdates } from './SyntheticUpdates';
 import type { BranchResult } from './BranchResult';
+
+async function resolvePersonaId(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<number> {
+  return options.personaId ?? await getActivePersonaId(db);
+}
 
 /**
  * @description Get all synthetic memories for a branch
@@ -53,7 +61,12 @@ import type { BranchResult } from './BranchResult';
  * const synthetics = await getSyntheticMemories(db, 1);
  * // Returns: [{ id: 1, branch_id: 1, memory_type: 'thought', ... }, ...]
  */
-export async function getSyntheticMemories(db: DrizzleD1, branchId: number): Promise<SyntheticMemory[]> {
+export async function getSyntheticMemories(
+  db: DrizzleD1,
+  branchId: number,
+  options: PersonaOptions = {},
+): Promise<SyntheticMemory[]> {
+  const personaId = await resolvePersonaId(db, options);
   const rows = await db.select({
     id: syntheticMemories.id,
     branch_id: syntheticMemories.branchId,
@@ -65,7 +78,7 @@ export async function getSyntheticMemories(db: DrizzleD1, branchId: number): Pro
     created_at: syntheticMemories.createdAt,
   })
     .from(syntheticMemories)
-    .where(eq(syntheticMemories.branchId, branchId))
+    .where(sql`${syntheticMemories.personaId} = ${personaId} AND ${syntheticMemories.branchId} = ${branchId}`)
     .orderBy(asc(sql`COALESCE(${syntheticMemories.positionTimestamp}, ${syntheticMemories.createdAt})`))
     .all();
   return rows as SyntheticMemory[];
@@ -85,7 +98,7 @@ export async function getSyntheticMemories(db: DrizzleD1, branchId: number): Pro
  *
  * @param db - Drizzle D1 client
  * @param branchId - Branch ID
- * @param memoryType - Type ('thought', 'message_to_user', etc.)
+ * @param memoryType - Type ('thought', 'message_to_dan', etc.)
  * @param content - Memory content
  * @param internal - Optional internal/subthought field
  * @param placement - {timestamp?: string} or {afterId?: number}
@@ -101,8 +114,10 @@ export async function addSyntheticMemory(
   memoryType: string,
   content: string,
   internal: string | null = null,
-  placement: SyntheticPlacement | null = null
+  placement: SyntheticPlacement | null = null,
+  options: PersonaOptions = {},
 ): Promise<SyntheticResult> {
+  const personaId = await resolvePersonaId(db, options);
   const positionTimestamp = placement?.timestamp ?? null;
   const positionAfterId = placement?.afterId ?? null;
 
@@ -118,6 +133,7 @@ export async function addSyntheticMemory(
   }
 
   await db.insert(syntheticMemories).values({
+    personaId,
     branchId,
     memoryType,
     content,
@@ -159,8 +175,10 @@ export async function addSyntheticMemory(
 export async function updateSyntheticMemory(
   db: DrizzleD1,
   syntheticId: number,
-  updates: SyntheticUpdates
+  updates: SyntheticUpdates,
+  options: PersonaOptions = {},
 ): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   const setValues: Record<string, unknown> = {};
 
   if (updates.memoryType !== undefined) {
@@ -185,7 +203,7 @@ export async function updateSyntheticMemory(
 
   await db.update(syntheticMemories)
     .set(setValues)
-    .where(eq(syntheticMemories.id, syntheticId));
+    .where(sql`${syntheticMemories.personaId} = ${personaId} AND ${syntheticMemories.id} = ${syntheticId}`);
 
   return { success: true };
 }
@@ -208,8 +226,13 @@ export async function updateSyntheticMemory(
  * const result = await deleteSyntheticMemory(db, 5);
  * // Returns: { success: true }
  */
-export async function deleteSyntheticMemory(db: DrizzleD1, syntheticId: number): Promise<BranchResult> {
+export async function deleteSyntheticMemory(
+  db: DrizzleD1,
+  syntheticId: number,
+  options: PersonaOptions = {},
+): Promise<BranchResult> {
+  const personaId = await resolvePersonaId(db, options);
   await db.delete(syntheticMemories)
-    .where(eq(syntheticMemories.id, syntheticId));
+    .where(sql`${syntheticMemories.personaId} = ${personaId} AND ${syntheticMemories.id} = ${syntheticId}`);
   return { success: true };
 }

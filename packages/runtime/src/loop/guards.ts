@@ -158,8 +158,11 @@ export async function getSleepState(
  * @param db - Database instance
  * @returns Guard result
  */
-export async function checkBatchGuard(db: DrizzleD1): Promise<GuardResult> {
-  const pendingBatches = await getPendingBatches(db);
+export async function checkBatchGuard(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<GuardResult> {
+  const pendingBatches = await getPendingBatches(db, options);
   const anyPendingBatch = pendingBatches.find(
     (b: any) => b.status === "pending" || b.status === "processing",
   );
@@ -246,7 +249,7 @@ export async function runAllGuards(
   }
 
   // 2. Batch guard - block while batches are pending/processing
-  const batchResult = await checkBatchGuard(db);
+  const batchResult = await checkBatchGuard(db, options);
   if (!batchResult.proceed) {
     return batchResult;
   }
