@@ -1002,7 +1002,8 @@ describe('Editor Slice', () => {
         await previewImport({ name: 'Test', data: [] });
 
         expect(api.post).toHaveBeenCalledWith('/personality/preview', {
-          snapshot: { name: 'Test', data: [] },
+          name: 'Test',
+          data: [],
           mode: 'merge',
         });
         expect(getState().importPreview).toEqual(previewData);
@@ -1048,9 +1049,8 @@ describe('Editor Slice', () => {
 
         await importPersonality({ name: 'Test' }, 'admin-password');
 
-        expect(api.post).toHaveBeenCalledWith('/personality/import', {
-          snapshot: { name: 'Test' },
-          mode: 'replace',
+        expect(api.post).toHaveBeenCalledWith('/personality/import?mode=replace', {
+          name: 'Test',
           password: 'admin-password',
         });
         expect(addLog).toHaveBeenCalledWith('✅ Import complete');
@@ -1070,10 +1070,8 @@ describe('Editor Slice', () => {
 
         await importPersonality({ name: 'Test' });
 
-        expect(api.post).toHaveBeenCalledWith('/personality/import', {
-          snapshot: { name: 'Test' },
-          mode: 'merge',
-          password: undefined,
+        expect(api.post).toHaveBeenCalledWith('/personality/import?mode=merge', {
+          name: 'Test',
         });
         expect(addLog).toHaveBeenCalledWith('✅ Import complete');
       });

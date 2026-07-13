@@ -2,7 +2,7 @@
  * Editor View
  *
  * @module views/EditorView
- * @description Tabbed editor: Branches | Overrides | Synthetic.
+ * @description Tabbed editor: Branches | Overrides | Synthetic | Personality.
  * - Branch list with active indicator (dot + glow).
  * - Override list with type icons and undo.
  * - Synthetic list with dashed borders.
@@ -16,10 +16,23 @@
  */
 
 import { useState, useEffect } from 'react';
+import type { ChangeEvent } from 'react';
 import { LoadingSkeleton } from '../components/ui';
 import { useAppStore } from '../store';
+import { OverridesPanel } from './EditorView/OverridesPanel';
+import { PersonalityPanel } from './EditorView/PersonalityPanel';
 
-type EditorTab = 'branches' | 'overrides' | 'synthetic';
+type ExportOptions = {
+  includeHistory: boolean;
+  historyLimit: number;
+  includeAllHistory: boolean;
+  includeSummaries: boolean;
+  includeBranches: boolean;
+  includeMedia: boolean;
+  includeGallery: boolean;
+};
+
+type EditorTab = 'branches' | 'overrides' | 'synthetic' | 'personality';
 
 export function EditorView() {
   const [tab, setTab] = useState<EditorTab>('branches');
@@ -28,6 +41,16 @@ export function EditorView() {
   const branches = useAppStore((s) => s.branches) as any[];
   const activeBranch = useAppStore((s) => s.activeBranch) as string;
   const syntheticMemories = useAppStore((s) => s.syntheticMemories) as any[];
+  const exportName = useAppStore((s) => s.exportName) as string;
+  const exportDescription = useAppStore((s) => s.exportDescription) as string;
+  const exportOptions = useAppStore((s) => s.exportOptions) as ExportOptions;
+  const isExporting = useAppStore((s) => s.isExporting) as boolean;
+  const importFile = useAppStore((s) => s.importFile) as File | null;
+  const importMode = useAppStore((s) => s.importMode) as string;
+  const importPreview = useAppStore((s) => s.importPreview) as Record<string, unknown> | null;
+  const isPreviewing = useAppStore((s) => s.isPreviewing) as boolean;
+  const isImporting = useAppStore((s) => s.isImporting) as boolean;
+  const addLog = useAppStore((s) => s.addLog) as (message: string) => void;
   const isLoading = useAppStore((s) => s.isLoading) as boolean;
   const error = useAppStore((s) => s.error) as string | null;
   const clearError = useAppStore((s) => s.clearError) as (() => void) | undefined;
@@ -37,6 +60,19 @@ export function EditorView() {
   const createBranch = useAppStore((s) => s.createBranch) as (name?: string, desc?: string) => Promise<void>;
   const newBranchName = useAppStore((s) => s.newBranchName) as string;
   const setNewBranchName = useAppStore((s) => s.setNewBranchName) as (name: string) => void;
+  const setExportName = useAppStore((s) => s.setExportName) as (name: string) => void;
+  const setExportDescription = useAppStore((s) => s.setExportDescription) as (description: string) => void;
+  const setExportOptions = useAppStore((s) => s.setExportOptions) as (options: ExportOptions) => void;
+  const setImportMode = useAppStore((s) => s.setImportMode) as (mode: string) => void;
+  const clearImport = useAppStore((s) => s.clearImport) as () => void;
+  const handleImportFileChange = useAppStore((s) => s.handleImportFileChange) as (e: ChangeEvent<HTMLInputElement>) => void;
+  const readImportFile = useAppStore((s) => s.readImportFile) as () => Promise<Record<string, unknown> | null>;
+  const exportPersonality = useAppStore((s) => s.exportPersonality) as () => Promise<Record<string, unknown> | null>;
+  const previewImport = useAppStore((s) => s.previewImport) as (snapshot: Record<string, unknown>) => Promise<void>;
+  const importPersonality = useAppStore((s) => s.importPersonality) as (
+    snapshot: Record<string, unknown>,
+    password?: string,
+  ) => Promise<void>;
 
   // Fetch editor data on mount
   const fetchTabData = useAppStore((s) => s.fetchTabData) as (tab: string) => Promise<void>;
@@ -46,6 +82,7 @@ export function EditorView() {
     { key: 'branches', label: 'Branches' },
     { key: 'overrides', label: 'Overrides' },
     { key: 'synthetic', label: 'Synthetic' },
+    { key: 'personality', label: 'Personality' },
   ];
 
   return (
@@ -138,6 +175,31 @@ export function EditorView() {
           <SyntheticPanel
             items={syntheticMemories}
             isLoading={isLoading}
+          />
+        )}
+
+        {tab === 'personality' && (
+          <PersonalityPanel
+            exportName={exportName}
+            exportDescription={exportDescription}
+            exportOptions={exportOptions}
+            isExporting={isExporting}
+            importFileName={importFile?.name || null}
+            importMode={importMode}
+            importPreview={importPreview}
+            isPreviewing={isPreviewing}
+            isImporting={isImporting}
+            setExportName={setExportName}
+            setExportDescription={setExportDescription}
+            setExportOptions={setExportOptions}
+            setImportMode={setImportMode}
+            clearImport={clearImport}
+            handleImportFileChange={handleImportFileChange}
+            readImportFile={readImportFile}
+            exportPersonality={exportPersonality}
+            previewImport={previewImport}
+            importPersonality={importPersonality}
+            addLog={addLog}
           />
         )}
       </div>
@@ -261,26 +323,6 @@ function BranchesPanel({
   );
 }
 
-/** Overrides panel with type icons and undo. */
-function OverridesPanel({ activeBranch }: { activeBranch: string }) {
-  // Overrides are part of the history/branch system.
-  // Full implementation will read overrides from the editor store.
-  // TODO: Add loading/empty/error tri-state pattern when overrides data is wired up.
-  return (
-    <div style={{
-      color: 'var(--text-muted)',
-      textAlign: 'center',
-      padding: 'var(--spacing-xl)',
-      fontSize: '0.875rem',
-    }}>
-      Memory overrides for branch "{activeBranch}".
-      <br />
-      <span style={{ fontSize: '0.8125rem' }}>
-        Use the Memory view to exclude/edit entries — they appear here as overrides.
-      </span>
-    </div>
-  );
-}
 
 /** Synthetic memories panel with dashed borders. */
 function SyntheticPanel({ items, isLoading }: { items: any[]; isLoading: boolean }) {
@@ -327,3 +369,4 @@ function SyntheticPanel({ items, isLoading }: { items: any[]; isLoading: boolean
 }
 
 export default EditorView;
+

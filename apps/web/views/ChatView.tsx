@@ -32,8 +32,8 @@ import type { ThinkTriggerState } from '../components/chat/ThinkTrigger';
 import { MessageInput } from '../components/ui/MessageInput';
 import { LoadingSkeleton } from '../components/ui';
 import { useAppStore } from '../store';
+import api from '../api/client';
 import { usePolling } from '../hooks';
-import api, { DEMO_MODE } from '../api/client';
 import { ActionGroup } from '../components/chat/ActionGroup';
 import { MetersStrip } from '../components/chat/MetersStrip';
 import { TimelineView } from '../components/chat/TimelineView';
@@ -57,8 +57,13 @@ import {
 import { resolveMediaUrl } from '../store';
 import type { Persona } from '../types';
 
-/** Entry types that render as chat bubbles — shared with segmentHistory. */
+/** Entry types that render as chat bubbles (mirrors ChatBubbleView constant).
+ * NOTE: inbound user messages exist under TWO types — 'dan_message' (legacy
+ * rows) and 'user_message' (what POST /message writes now). Omitting
+ * 'user_message' made Dan's sent messages invisible in the chat thread
+ * (2026-07-11 bug: "pressing enter doesn't show my message"). */
 const MESSAGE_TYPES = BUBBLE_TYPES;
+const USER_MESSAGE_TYPES = USER_BUBBLE_TYPES;
 const AUTO_FOLLOW_BREAK_THRESHOLD_PX = 48;
 const SCROLL_BUTTON_DISTANCE_MULTIPLIER = 1.5;
 
@@ -106,7 +111,7 @@ export function ChatView() {
   const isLoading = useAppStore((state) => state.isLoading) as boolean;
   const isThinking = useAppStore((state) => state.isThinking) as boolean;
   const error = useAppStore((state) => state.error) as string | null;
-  const userInput = useAppStore((state) => state.userInput) as string;
+  const danInput = useAppStore((state) => state.danInput) as string;
   const activePersona = useAppStore((state) => state.activePersona) as Persona | null;
   const imagePreview = useAppStore(
     (state) => state.imagePreview,
@@ -115,7 +120,7 @@ export function ChatView() {
     (state) => state.isConvertingVideo,
   ) as boolean;
 
-  const setUserInput = useAppStore((state) => state.setUserInput) as (
+  const setDanInput = useAppStore((state) => state.setDanInput) as (
     value: string,
   ) => void;
   const sendMessage = useAppStore(
@@ -186,6 +191,14 @@ export function ChatView() {
     void refreshBranchState();
   }, [refreshBranchState]);
 
+  useEffect(() => {
+    const handleMemoryOverridesChanged = () => {
+      void refreshBranchState();
+    };
+    window.addEventListener('memory-overrides-changed', handleMemoryOverridesChanged);
+    return () => window.removeEventListener('memory-overrides-changed', handleMemoryOverridesChanged);
+  }, [refreshBranchState]);
+
   const fetchHistoryAction = useAppStore((s) => s.fetchHistory) as
     | (() => Promise<void>)
     | undefined;
@@ -224,26 +237,20 @@ export function ChatView() {
     [visibleThread],
   );
 
-  /** Chat ↔ Timeline mode (persisted in the store since the original UI). */
+  /** Chat <-> Timeline mode (persisted in the store since the original UI). */
   const chatViewMode = useAppStore((s) => s.chatViewMode) as string;
   const setChatViewMode = useAppStore(
     (s) => s.setChatViewMode,
   ) as (mode: string) => void;
 
-  /** Demo affordance: glow the first drip-down until someone opens one. */
-  const [attractRetired, setAttractRetired] = useState(false);
-  const firstActionsKey = useMemo(
-    () => segments.find((seg) => seg.kind === 'actions')?.key,
-    [segments],
-  );
-
   /**
    * Resolve an entry's attached media for the in-bubble image chip.
    *
    * `internal` is overloaded by era: on message entries it can hold private
-   * side-channel TEXT; on media entries it holds a data URL or `r2://` key.
-   * Only values that actually look like images may become an <img src> —
-   * feeding prose through produced a broken-image chip on real messages.
+   * side-channel TEXT (Clio's asides); on media entries it holds a data URL
+   * or `r2://` key. Only values that actually look like images may become an
+   * <img src> — feeding prose through produced a broken-image chip on real
+   * messages (the "?" bubble, 2026-07-11).
    */
   const entryMediaUrl = useCallback((entry: HistoryEntry): string | null => {
     const internal = entry.internal;
@@ -335,9 +342,9 @@ export function ChatView() {
   }, [isAutoFollowEnabled, messageEntries.length, scrollToLatestMessage]);
 
   /**
-   * Live updates: the persona thinks on her own schedule (cycles), so new
-   * entries arrive server-side with no user action. Poll gently while the tab
-   * is visible (usePolling pauses on hidden) — but only when the user is
+   * Live updates: Clio thinks on her own schedule (cycles), so new entries
+   * arrive server-side with no user action. Poll gently while the tab is
+   * visible (usePolling pauses on hidden) — but only when the user is
    * following the bottom of the thread, so a refetch never yanks the scroll
    * position while they're reading older messages.
    */
@@ -351,10 +358,7 @@ export function ChatView() {
         void fetchHistory();
       }
     },
-    // Demo mode: scripted replies land in-memory ~6s after a send, so the
-    // exhibit polls fast enough for them to feel conversational. Live mode:
-    // replies arrive on cycle cadence (minutes) — 30s is plenty.
-    { interval: DEMO_MODE ? 5000 : 30000, immediate: false },
+    { interval: 30000, immediate: false },
   );
 
   useEffect(() => {
@@ -406,18 +410,10 @@ export function ChatView() {
       );
     }
     if (segment.kind === 'actions') {
-      return (
-        <ActionGroup
-          entries={segment.entries}
-          attract={
-            DEMO_MODE && !attractRetired && segment.key === firstActionsKey
-          }
-          onFirstOpen={() => setAttractRetired(true)}
-        />
-      );
+      return <ActionGroup entries={segment.entries} />;
     }
     const entry = segment.entry as ThreadEntry;
-    const isUser = USER_BUBBLE_TYPES.has(entry.type);
+    const isUser = USER_MESSAGE_TYPES.has(entry.type);
 
     // Rewriting this entry: swap the bubble for the inline editor.
     if (editMode && editingEntryId === entry.id && !entry._synthetic) {
@@ -754,7 +750,7 @@ export function ChatView() {
           <ThinkTrigger
             state={thinkTriggerState}
             onThink={triggerThinkNow}
-            statusText="picking this up — usually under 2 minutes"
+            statusText="she's picking this up — usually under 2 minutes"
           />
         </div>
       </div>
@@ -841,8 +837,8 @@ export function ChatView() {
         }}
       >
         <MessageInput
-          value={userInput}
-          onChange={setUserInput}
+          value={danInput}
+          onChange={setDanInput}
           onSend={sendMessage}
           placeholder={`Message ${personaName}...`}
           disabled={isThinking}

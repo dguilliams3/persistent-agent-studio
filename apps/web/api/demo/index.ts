@@ -35,6 +35,10 @@ import {
   DEMO_ID_BASE,
   type DemoHistoryEntry,
 } from './specimen';
+import {
+  handleDemoOverrideDelete,
+  handleDemoPersonalityPost,
+} from './personality';
 
 // =============================================================================
 // IN-MEMORY INTERACTIVE STATE (per page load)
@@ -312,6 +316,21 @@ function demoPost(
       return { success: true, demo: true };
     }
 
+    case '/personality/export':
+    case '/personality/validate':
+    case '/personality/preview':
+    case '/personality/import':
+      return handleDemoPersonalityPost(endpoint, body, {
+        liveHistory,
+        demoBranches,
+        branchOverrides,
+        branchSynthetics,
+        activeBranchName,
+        ensureDemoEditBranch,
+        demoOverrides,
+        nowStamp,
+      });
+
     case '/personas': {
       const name = String(body?.name || '').trim();
       if (!name) return { error: 'name required' };
@@ -321,7 +340,7 @@ function demoPost(
         name,
         isActive: true,
         created_at: nowStamp(),
-        description: String(body?.description || null) || null,
+        description: String(body?.description || ''),
       };
       for (const existing of demoPersonas) existing.isActive = false;
       demoPersonas.push(persona);
@@ -354,6 +373,15 @@ function demoPost(
   }
 }
 
+/** DELETE routes — targeted undo and cleanup actions. */
+function demoDelete(endpoint: string): Record<string, unknown> {
+  return handleDemoOverrideDelete(endpoint, {
+    activeBranchName,
+    branchOverrides,
+    demoOverrides,
+  });
+}
+
 /**
  * Entry point used by api/client.ts. Returns after a small latency so the
  * UI's loading states exercise realistically.
@@ -377,6 +405,9 @@ export async function demoRequest<T = Record<string, unknown>>(
 
   if (method === 'GET') {
     return demoGet(endpoint) as T;
+  }
+  if (method === 'DELETE') {
+    return demoDelete(endpoint) as T;
   }
   return demoPost(endpoint, parsedBody) as T;
 }

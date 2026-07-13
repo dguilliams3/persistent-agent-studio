@@ -1302,7 +1302,7 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
     addLog("🔍 Previewing import...");
     try {
       const data = await api.post("/personality/preview", {
-        snapshot: fileContent,
+        ...(fileContent as Record<string, unknown>),
         mode: importMode,
       });
       setImportPreview(data as Record<string, unknown>);
@@ -1336,10 +1336,9 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (
     setIsImporting(true);
     addLog(`📥 Importing (${importMode} mode)...`);
     try {
-      await api.post("/personality/import", {
-        snapshot: fileContent,
-        mode: importMode,
-        password: importMode === "replace" ? password : undefined,
+      await api.post(`/personality/import?mode=${encodeURIComponent(importMode)}`, {
+        ...(fileContent as Record<string, unknown>),
+        ...(importMode === "replace" ? { password } : {}),
       });
       addLog("✅ Import complete");
       setImportPreview(null);
