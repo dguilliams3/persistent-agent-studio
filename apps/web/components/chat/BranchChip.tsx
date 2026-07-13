@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '../../api/client';
+import { useAppStore } from '../../store';
 
 interface BranchRow {
   name: string;
@@ -51,12 +52,14 @@ export function BranchChip({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
+  const addLog = useAppStore((state) => state.addLog) as (message: string) => void;
 
   const refresh = useCallback(async () => {
     try {
       const data = (await api.get('/branches')) as { branches?: BranchRow[] };
       setBranches(data.branches || []);
-    } catch {
+    } catch (error: unknown) {
+      addLog(`Error: Failed to load branches: ${error instanceof Error ? error.message : String(error)}`);
       /* chip degrades to label-only */
     }
   }, []);
@@ -85,7 +88,8 @@ export function BranchChip({
       onBranchChanged();
       await refresh();
       setOpen(false);
-    } catch {
+    } catch (error: unknown) {
+      addLog(`Error: Failed to activate branch ${name}: ${error instanceof Error ? error.message : String(error)}`);
       /* keep dropdown open; state unchanged */
     } finally {
       setBusy(false);
@@ -104,7 +108,8 @@ export function BranchChip({
       onBranchChanged();
       await refresh();
       setOpen(false);
-    } catch {
+    } catch (error: unknown) {
+      addLog(`Error: Failed to create branch ${name}: ${error instanceof Error ? error.message : String(error)}`);
       /* leave form open */
     } finally {
       setBusy(false);

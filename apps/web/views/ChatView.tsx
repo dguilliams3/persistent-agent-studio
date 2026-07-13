@@ -128,6 +128,7 @@ export function ChatView() {
     (state) => state.triggerThinkNow,
   ) as () => Promise<void>;
   const clearError = useAppStore((state) => state.clearError) as () => void;
+  const addLog = useAppStore((state) => state.addLog) as (message: string) => void;
   const handleImageSelect = useAppStore(
     (state) => state.handleImageSelect,
   ) as (event: { target: { files: FileList | File[] } }) => void;
@@ -175,7 +176,8 @@ export function ChatView() {
       setActiveBranchName(b.activeBranch || 'main');
       setSynthetics(syn.synthetics || []);
       setOverrides(ov.overrides || []);
-    } catch {
+    } catch (error: unknown) {
+      addLog(`Error: branch view degraded to canonical: ${error instanceof Error ? error.message : String(error)}`);
       /* branch layer degrades to the canonical thread */
     }
   }, []);

@@ -20,6 +20,7 @@
 
 import { useState } from 'react';
 import api from '../../api/client';
+import { useAppStore } from '../../store';
 
 const SYNTHETIC_TYPES = [
   { value: 'user_message', label: 'from you' },
@@ -43,6 +44,7 @@ export function InsertMemoryPoint({ timestamp, onInserted }: InsertMemoryPointPr
   const [type, setType] = useState('user_message');
   const [content, setContent] = useState('');
   const [busy, setBusy] = useState(false);
+  const addLog = useAppStore((state) => state.addLog) as (message: string) => void;
 
   const insert = async () => {
     const text = content.trim();
@@ -53,7 +55,8 @@ export function InsertMemoryPoint({ timestamp, onInserted }: InsertMemoryPointPr
       setContent('');
       setOpen(false);
       onInserted();
-    } catch {
+    } catch (error: unknown) {
+      addLog(`Error: Failed to add memory: ${error instanceof Error ? error.message : String(error)}`);
       /* keep composer open so nothing typed is lost */
     } finally {
       setBusy(false);
@@ -186,6 +189,7 @@ export function InlineMemoryEditor({
 }: InlineMemoryEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [busy, setBusy] = useState(false);
+  const addLog = useAppStore((state) => state.addLog) as (message: string) => void;
 
   const save = async () => {
     const text = content.trim();
@@ -194,7 +198,8 @@ export function InlineMemoryEditor({
     try {
       await api.post('/memory/edit', { table: 'history', id: entryId, content: text });
       onSaved();
-    } catch {
+    } catch (error: unknown) {
+      addLog(`Error: Failed to save memory rewrite: ${error instanceof Error ? error.message : String(error)}`);
       /* leave editor open */
     } finally {
       setBusy(false);
