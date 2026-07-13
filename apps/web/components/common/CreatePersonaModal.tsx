@@ -61,6 +61,7 @@ export function CreatePersonaModal({ isOpen, onClose }: CreatePersonaModalProps)
   const [models, setModels] = useState<RegistryModel[] | null>(null);
   const [defaultId, setDefaultId] = useState<string>('');
   const [minting, setMinting] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
 
   const slug = useMemo(() => previewSlug(name), [name]);
   const named = slug.length > 0;
@@ -95,6 +96,7 @@ export function CreatePersonaModal({ isOpen, onClose }: CreatePersonaModalProps)
     setModel('');
     setPassword('');
     setMinting(false);
+    setMintError(null);
   };
 
   const handleClose = () => {
@@ -105,14 +107,18 @@ export function CreatePersonaModal({ isOpen, onClose }: CreatePersonaModalProps)
   const mint = async () => {
     if (!named || !password || minting) return;
     setMinting(true);
+    setMintError(null);
     try {
       const options: Record<string, unknown> = { systemPromptTemplate: template };
       if (model) options.model = model;
       const created = await createPersona(name.trim(), password, options);
       if (created) {
         handleClose();
+      } else {
+        // A considered act that fails should say so IN CONTEXT (I4) — the
+        // toast also speaks, but the modal owns its own failure.
+        setMintError('The mint did not take — check the key, then try again.');
       }
-      // Failure path: createPersona addLogs the error — the toast speaks.
     } finally {
       setMinting(false);
     }
@@ -174,25 +180,55 @@ export function CreatePersonaModal({ isOpen, onClose }: CreatePersonaModalProps)
               </div>
             </div>
 
-            {/* 3 — Mind (registry-fed; hidden when registry unavailable) */}
+            {/* 3 — Mind (registry-fed cards; hidden when registry unavailable).
+                Card-parity with Starting identity: in a
+                small-model lab, WHICH MIND gets a life is the experiment's
+                primary variable — it must read as at least as considered as
+                the template, never as a bare form control. */}
             {models && (
               <div>
                 <div className="text-sm font-medium mb-1">Mind</div>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md bg-surface border border-border-subtle focus:border-accent outline-none text-sm"
-                >
-                  <option value="">
-                    Server default{defaultId ? ` (${defaultId})` : ''}
-                  </option>
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setModel('')}
+                    className={`text-left px-3 py-2 rounded-md border transition-colors ${
+                      model === ''
+                        ? 'border-accent bg-accent/10'
+                        : 'border-border-subtle hover:bg-accent/5'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">Server default</span>
+                    <span
+                      className="block text-xs"
+                      style={{ color: 'rgb(var(--ui-text-muted))' }}
+                    >
+                      {defaultId ? `Currently ${defaultId}` : 'Whatever the loop runs today.'}
+                    </span>
+                  </button>
                   {models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                      {m.tier ? ` — ${m.tier}` : ''}
-                    </option>
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setModel(m.id)}
+                      className={`text-left px-3 py-2 rounded-md border transition-colors ${
+                        model === m.id
+                          ? 'border-accent bg-accent/10'
+                          : 'border-border-subtle hover:bg-accent/5'
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{m.label}</span>
+                      <span
+                        className="block text-xs"
+                        style={{ color: 'rgb(var(--ui-text-muted))' }}
+                      >
+                        {m.provider}
+                        {m.tier ? ` · ${m.tier}` : ''}
+                        {m.tier === 'fast' ? ' — a small, cheap mind to give a life' : ''}
+                      </span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             )}
 
@@ -212,6 +248,11 @@ export function CreatePersonaModal({ isOpen, onClose }: CreatePersonaModalProps)
                 placeholder="Admin password — the key that starts a life"
                 className="w-full px-3 py-2 rounded-md bg-surface border border-border-subtle focus:border-accent outline-none"
               />
+              {mintError && (
+                <div className="mt-1 text-xs" style={{ color: 'rgb(var(--danger, 217 99 79))' }}>
+                  {mintError}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
