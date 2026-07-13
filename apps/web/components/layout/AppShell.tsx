@@ -25,6 +25,7 @@ import { ChatView } from '../../views/ChatView';
 import { useAppStore } from '../../store';
 import type { ActiveView } from '../../types';
 import { Lightbox } from './Lightbox';
+import { LogToastStack } from '../common/LogToastStack';
 import { GradientMesh, LoadingSkeleton } from '../ui';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { DEMO_MODE } from '../../api/client';
@@ -143,6 +144,7 @@ export function AppShell() {
     name?: string;
     profilePicture?: string | null;
   } | null;
+  const logEntries = useAppStore((s) => s.log) as Array<{ msg: string; time: number }>;
 
   /** Map store's activeTab to our typed ActiveView (with validation). */
   const activeView: ActiveView = VALID_VIEWS.has(activeTab as ActiveView)
@@ -380,6 +382,7 @@ export function AppShell() {
         toggleImageVault={toggleImageVault}
         deleteGalleryImage={deleteGalleryImage}
       />
+      <LogToastStack entries={logEntries} />
     </div>
   );
 }

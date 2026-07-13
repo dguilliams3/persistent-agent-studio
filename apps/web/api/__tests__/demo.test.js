@@ -82,6 +82,33 @@ describe('observatory demo router', () => {
     expect(types).toContain('thought');
   });
 
+  it('POST /personas and PUT /personas/:id/activate update the in-memory persona list', async () => {
+    const created = await settle(
+      demoRequest('/personas', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Delphi' }),
+      }),
+    );
+
+    expect(created.success).toBe(true);
+    expect(created.persona.name).toBe('Delphi');
+
+    const activeAfterCreate = await settle(demoRequest('/personas/active'));
+    expect(activeAfterCreate.persona.name).toBe('Delphi');
+
+    const activated = await settle(
+      demoRequest(`/personas/${created.persona.id}/activate`, {
+        method: 'PUT',
+      }),
+    );
+
+    expect(activated.success).toBe(true);
+    expect(activated.persona.id).toBe(created.persona.id);
+
+    const activeAfterActivate = await settle(demoRequest('/personas/active'));
+    expect(activeAfterActivate.persona.id).toBe(created.persona.id);
+  });
+
   it('GET /sim/basin returns observatory metrics in overview shape', async () => {
     const data = await settle(demoRequest('/sim/basin'));
     expect(data.global.sampleCount).toBeGreaterThan(0);

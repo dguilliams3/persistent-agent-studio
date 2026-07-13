@@ -44,6 +44,14 @@ const liveHistory: DemoHistoryEntry[] = [...SPECIMEN_HISTORY];
 let interactiveId = DEMO_ID_BASE;
 let visitorMessageCount = 0;
 let thinkCycleCount = 0;
+type DemoPersona = (typeof SPECIMEN_PERSONAS.personas)[number];
+const demoPersonas: DemoPersona[] = SPECIMEN_PERSONAS.personas.map((persona) => ({
+  ...persona,
+}));
+let demoPersonaId = demoPersonas.reduce(
+  (maxId, persona) => Math.max(maxId, persona.id),
+  0,
+);
 
 const nowStamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 
@@ -146,9 +154,12 @@ function demoGet(endpoint: string): Record<string, unknown> {
     case '/state':
       return SPECIMEN_STATE;
     case '/personas':
-      return SPECIMEN_PERSONAS;
+      return { personas: demoPersonas };
     case '/personas/active':
-      return { persona: SPECIMEN_PERSONAS.personas[0] };
+      return {
+        persona:
+          demoPersonas.find((persona) => persona.isActive) || demoPersonas[0] || null,
+      };
     case '/questions':
       return SPECIMEN_QUESTIONS;
     case '/learned':
@@ -287,6 +298,22 @@ function demoPost(
         });
       return { success: true, demo: true };
     }
+
+    case '/personas': {
+      const name = String(body?.name || '').trim();
+      if (!name) return { error: 'name required' };
+
+      const persona: DemoPersona = {
+        id: ++demoPersonaId,
+        name,
+        isActive: true,
+        created_at: nowStamp(),
+        description: String(body?.description || null) || null,
+      };
+      for (const existing of demoPersonas) existing.isActive = false;
+      demoPersonas.push(persona);
+      return { success: true, persona, demo: true };
+    }
     default: {
       // PUT /branches/:name/activate — branch swap
       const activate = path.match(/^\/branches\/([^/]+)\/activate$/);
@@ -298,7 +325,17 @@ function demoPost(
         for (const b of demoBranches) b.is_active = b.name === name ? 1 : 0;
         return { success: true, activeBranch: name, demo: true };
       }
-      // Other writes are accepted and discarded — the exhibit is read-mostly.
+      const activatePersona = path.match(/^\/personas\/(\d+)\/activate$/);
+      if (activatePersona) {
+        const personaId = Number(activatePersona[1]);
+        const persona = demoPersonas.find((candidate) => candidate.id === personaId);
+        if (!persona) {
+          return { error: 'unknown persona' };
+        }
+        for (const existing of demoPersonas) existing.isActive = existing.id === personaId;
+        return { success: true, persona, demo: true };
+      }
+      // Other writes remain read-mostly; personas and branch swaps are handled honestly above.
       return { success: true, demo: true };
     }
   }

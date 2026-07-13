@@ -18,6 +18,7 @@ import React from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { HistoryEntry } from '@persistence/db';
+import { parseMessageSenderMetadata } from './messageMetadata';
 
 /** Props required to render a single chat bubble. */
 export interface ChatBubbleProps {
@@ -212,6 +213,13 @@ export function ChatBubble({
   mediaUrl = null,
 }: ChatBubbleProps) {
   const cycleData = !isUser ? parseCycleMetadata(entry) : null;
+  const senderMetadata = isUser
+    ? parseMessageSenderMetadata(entry.metadata)
+    : null;
+  const senderLabel =
+    senderMetadata?.from && senderMetadata.from !== 'Dan'
+      ? senderMetadata.from
+      : null;
   const [mediaOpen, setMediaOpen] = React.useState(false);
 
   return (
@@ -224,22 +232,46 @@ export function ChatBubble({
     >
       <div
         style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: isUser ? 'flex-end' : 'flex-start',
+          gap: senderLabel ? '4px' : 0,
           maxWidth: '720px',
           width: 'fit-content',
           minWidth: '80px',
-          backgroundColor: isUser
-            ? 'var(--user-bubble)'
-            : 'var(--persona-bubble)',
-          color: 'var(--text-primary)',
-          padding: 'var(--spacing-md) var(--spacing-lg)',
-          borderRadius: '16px',
-          ...(isUser
-            ? { borderBottomRightRadius: '4px' }
-            : { borderBottomLeftRadius: '4px' }),
-          border: '1px solid var(--border-subtle)',
-          wordBreak: 'break-word' as const,
         }}
       >
+        {senderLabel && (
+          <div
+            style={{
+              marginRight: '6px',
+              fontSize: '0.6875rem',
+              lineHeight: 1,
+              letterSpacing: '0.02em',
+              color: 'var(--text-muted)',
+              userSelect: 'none',
+            }}
+          >
+            ⟡ {senderLabel}
+          </div>
+        )}
+        <div
+          style={{
+            width: 'fit-content',
+            minWidth: '80px',
+            backgroundColor: isUser
+              ? 'var(--user-bubble)'
+              : 'var(--persona-bubble)',
+            color: 'var(--text-primary)',
+            padding: 'var(--spacing-md) var(--spacing-lg)',
+            borderRadius: '16px',
+            ...(isUser
+              ? { borderBottomRightRadius: '4px' }
+              : { borderBottomLeftRadius: '4px' }),
+            border: '1px solid var(--border-subtle)',
+            wordBreak: 'break-word' as const,
+          }}
+        >
         {/* Message content — plain text for user, markdown for persona */}
         <div
           className="chat-bubble-content"
@@ -366,6 +398,7 @@ export function ChatBubble({
             </span>
           </button>
         )}
+        </div>
       </div>
     </div>
   );
