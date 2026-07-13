@@ -20,6 +20,7 @@ import {
   setActivePersonaId,
   getPersona,
   listPersonas,
+  derivePersonaSlug,
 } from '../index';
 
 
@@ -96,12 +97,31 @@ export async function handleCreatePersona(db: DrizzleD1, body: CreatePersonaBody
     return { error: 'Invalid password', code: 'INVALID_PASSWORD', status: 401 };
   }
 
-  const slug = typeof body.slug === 'string' ? body.slug.trim().toLowerCase() : '';
-  if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+  // Slug: explicit slug is validated as-sent; absent slug is DERIVED from the
+  // name via the shared canonical rule (derivePersonaSlug). Before this, the
+  // web app (which never sends a slug) got a guaranteed 400 from this line —
+  // the only create surface could not create.
+  const explicitSlug = typeof body.slug === 'string' ? body.slug.trim().toLowerCase() : '';
+  if (explicitSlug && !/^[a-z0-9-]+$/.test(explicitSlug)) {
     return { error: 'Slug must be lowercase alphanumeric with dashes', status: 400, code: 'INVALID_SLUG' };
   }
+  const nameForSlug = typeof body.name === 'string' ? body.name.trim() : '';
+  const slug = explicitSlug || derivePersonaSlug(nameForSlug);
+  if (!slug) {
+    return {
+      error: 'Provide a slug, or a name containing letters/numbers to derive one from',
+      status: 400,
+      code: 'INVALID_SLUG'
+    };
+  }
 
-  const template = typeof body.systemPromptTemplate === 'string' ? body.systemPromptTemplate.trim() : '';
+  // Template: absent defaults to 'minimal' (a neutral lab identity). An
+  // EXPLICIT unknown template still 400s — honest rejection over silent
+  // rewriting. Note: an absent default matters doubly because the identity
+  // resolver falls back to the default persona identity when the column is
+  // NULL — an undefaulted mint would silently wear the wrong self-image.
+  const rawTemplate = typeof body.systemPromptTemplate === 'string' ? body.systemPromptTemplate.trim() : '';
+  const template = rawTemplate || 'minimal';
   if (!SYSTEM_PROMPT_TEMPLATES.has(template)) {
     return {
       error: `systemPromptTemplate must be one of: ${[...SYSTEM_PROMPT_TEMPLATES].join(', ')}`,

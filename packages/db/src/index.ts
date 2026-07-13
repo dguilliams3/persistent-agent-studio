@@ -38,6 +38,7 @@ export {
   getPersona,
   listPersonas,
   createPersona,
+  derivePersonaSlug,
   resetPersonaCache,
   forkPersona,
 } from "./personas";

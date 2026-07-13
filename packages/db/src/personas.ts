@@ -149,9 +149,32 @@ export async function listPersonas(
 }
 
 /**
+ * @description Derives a URL-safe persona slug from a display name.
+ *
+ * THE canonical slug rule — extracted so every mint lane produces identical
+ * slugs for identical names (the web lane sent no slug and 400'd on a
+ * contract other lanes satisfied by deriving — one rule, one function,
+ * every door).
+ *
+ * Returns '' when the name contains no alphanumerics (e.g. "!!!") — callers
+ * must treat '' as underivable and reject with a clear error.
+ *
+ * @upstream Called by: createPersona (below), handlers/personas.ts
+ *   handleCreatePersona
+ * Tests: packages/db/src/handlers/personas.create.test.ts
+ */
+export function derivePersonaSlug(name: string): string {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
  * @description Creates a new persona with the given name
  *
- * @upstream Called by: telegram/commands/persona handler
+ * @upstream Called by: handlers/personas.ts handleCreatePersona
  * @downstream Calls: Drizzle personas insert
  *
  * @param db - Drizzle D1 client
@@ -168,7 +191,7 @@ export async function createPersona(
     throw new Error('Persona name is required');
   }
 
-  const finalSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const finalSlug = slug || derivePersonaSlug(name);
   const now = new Date().toISOString();
 
   const result = await db.insert(personas).values({
