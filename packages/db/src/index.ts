@@ -52,6 +52,16 @@ export { type DrizzleD1, createDrizzleClient } from "./client";
 // =============================================================================
 export { getState, setState } from "./state";
 export {
+  type ModelRegistry,
+  type ModelRegistryEntry,
+  parseModelRegistry,
+  getModelRegistry,
+  setModelRegistry,
+  isRegisteredModel,
+  pickEffectiveModel,
+  resolveEffectiveModel,
+} from "./model-registry";
+export {
   queueQuickFollowup,
   type QueueQuickFollowupOptions,
   type QueueQuickFollowupResult,

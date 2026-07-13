@@ -51,6 +51,14 @@ export const personas = sqliteTable(
     name: text("name").notNull(),
     slug: text("slug").unique().notNull(),
     systemPromptTemplate: text("system_prompt_template"),
+    /**
+     * Per-persona model binding (nullable). When set, the resolution ladder
+     * (model-registry.ts::resolveEffectiveModel) runs this persona on this
+     * model: options.model > personas.model > state selected_model > registry
+     * default. The core lab requirement — bind a cheap model to a lab persona
+     * at mint time.
+     */
+    model: text("model"),
     operatorContextId: text("operator_context_id"),
     forkedFromId: integer("forked_from_id"),
     totalCycles: integer("total_cycles").default(0),

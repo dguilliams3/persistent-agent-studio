@@ -1595,14 +1595,36 @@ export const ROUTE_REGISTRY = {
   // ===========================================================================
   // MODEL/SETTINGS ROUTES
   // ===========================================================================
+  // GET /models — the D1-backed model registry (doctrine I1). UIs render their
+  // pickers from THIS, never from hardcoded id lists. selectedModel reflects
+  // the full resolution ladder for the active persona.
+  "/models": {
+    GET: async (ctx: RouteCtx) => {
+      const { MODEL_REGISTRY_SEED } = await import("../constants.js");
+      const { getModelRegistry, resolveEffectiveModel } = await import("@persistence/db");
+      const registry = await getModelRegistry(asDrizzleDb(ctx.db), MODEL_REGISTRY_SEED);
+      const selectedModel = await resolveEffectiveModel(asDrizzleDb(ctx.db), {
+        seed: MODEL_REGISTRY_SEED,
+      });
+      return Response.json(
+        { ...registry, selectedModel, source: "d1" },
+        { headers: ctx.getResponseHeaders("/models", "GET") },
+      );
+    },
+  },
   "/model": {
     POST: async (ctx: RouteCtx) => {
-      const { MODELS } = await import("../constants.js");
+      // Registry-validated (was: hardcoded 3-model triple). The
+      // set of valid models is the D1 registry; editing D1 changes it live.
+      const { MODEL_REGISTRY_SEED } = await import("../constants.js");
+      const { getModelRegistry } = await import("@persistence/db");
       const { model } = ctx.body;
-      const validModels = [MODELS.sonnet, MODELS.opus, MODELS.haiku];
-      if (!validModels.includes(model)) {
+      const registry = await getModelRegistry(asDrizzleDb(ctx.db), MODEL_REGISTRY_SEED);
+      if (!registry.models.some((m) => m.id === model)) {
         return Response.json(
-          { error: `Invalid model. Must be one of: ${validModels.join(", ")}` },
+          {
+            error: `Invalid model. Must be one of: ${registry.models.map((m) => m.id).join(", ")}`,
+          },
           { status: 400, headers: ctx.corsHeaders },
         );
       }

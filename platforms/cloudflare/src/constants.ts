@@ -109,6 +109,23 @@ export const MODELS = {
 };
 
 /**
+ * @description Bootstrap SEED for the D1 model registry (doctrine I1: models
+ * live in D1). This constant is written into the `config`
+ * table (key `model_registry`) on first read and NEVER consulted again while a
+ * valid registry row exists: to add/retire models at runtime, edit the D1 row —
+ * no redeploy. Feature code must validate/resolve via @persistence/db
+ * model-registry, not against MODELS directly.
+ */
+export const MODEL_REGISTRY_SEED = {
+  models: [
+    { id: MODELS.haiku, label: 'Haiku (Fast)', provider: 'anthropic', tier: 'fast' },
+    { id: MODELS.sonnet, label: 'Sonnet (Balanced)', provider: 'anthropic', tier: 'balanced' },
+    { id: MODELS.opus, label: 'Opus (Deep)', provider: 'anthropic', tier: 'deep' },
+  ],
+  defaultId: MODELS.opus,
+};
+
+/**
  * @description OpenAI model identifiers
  * Maps friendly aliases to full model names for use with the LLM service.
  *

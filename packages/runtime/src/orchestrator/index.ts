@@ -126,6 +126,7 @@ export async function runThinkingCycle(
   const { model, provider, maxOutputTokens } = await resolveProviderConfig(
     db,
     options,
+    config.modelRegistrySeed,
   );
 
   // --- Create cycle record ---

@@ -9,8 +9,8 @@
  * @downstream Calls: @persistence/db (state), loop/guards
  */
 
-import type { DrizzleD1, PersonaOptions } from "@persistence/db";
-import { getState, setState } from "@persistence/db";
+import type { DrizzleD1, PersonaOptions, ModelRegistry } from "@persistence/db";
+import { getState, setState, resolveEffectiveModel } from "@persistence/db";
 import { runAllGuards } from "../loop/guards";
 import type { CycleOptions, OrchestratorResult } from "./types";
 
@@ -93,16 +93,29 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 16000;
 
 /**
  * @description Resolve provider, model, and max tokens from options + stored state.
- * Priority: 1) options (API/UI), 2) stored preference (Telegram /model), 3) default
+ *
+ * With a registry seed (platform-supplied): the D1 registry ladder decides the
+ * model — options.model > personas.model > state selected_model > registry
+ * default (config-as-data: models live in D1).
+ * Without a seed (legacy callers): options > state > DEFAULT_MODEL constant.
  */
 export async function resolveProviderConfig(
   db: DrizzleD1,
   options: CycleOptions,
+  modelRegistrySeed?: ModelRegistry,
 ): Promise<{ model: string; provider: string; maxOutputTokens: number }> {
-  const storedModel = await getState(db, "selected_model");
   const storedProvider =
     (await getState(db, "selected_provider")) || "anthropic";
-  const model = options.model || storedModel || DEFAULT_MODEL;
+  let model: string;
+  if (modelRegistrySeed) {
+    model = await resolveEffectiveModel(db, {
+      optionsModel: options.model ?? null,
+      seed: modelRegistrySeed,
+    });
+  } else {
+    const storedModel = await getState(db, "selected_model");
+    model = options.model || storedModel || DEFAULT_MODEL;
+  }
   const provider = options.provider || storedProvider;
 
   const storedMaxTokens = await getState(db, "max_output_tokens");

@@ -146,6 +146,13 @@ export interface OrchestratorConfig {
   llm: LLM;
   callbacks: PlatformCallbacks;
   personaOptions?: import("@persistence/db").PersonaOptions;
+  /**
+   * Platform-supplied model registry seed (constants → D1 bootstrap). When
+   * present, model resolution runs the registry ladder (options.model >
+   * personas.model > state selected_model > registry default) instead of the
+   * legacy state-or-DEFAULT_MODEL path. See @persistence/db model-registry.
+   */
+  modelRegistrySeed?: import("@persistence/db").ModelRegistry;
 }
 
 /** Cycle options (matches monolith ThinkingCycleOptions) */

@@ -25,6 +25,7 @@ import { processPendingBatches } from "./services/index.js";
 
 // Runtime orchestrator
 import { runThinkingCycle as runOrchestrator } from "@persistence/runtime";
+import { MODEL_REGISTRY_SEED } from "./constants.js";
 import { createLLM } from "@persistence/llm";
 import { createPlatformCallbacks } from "./services/cycle-adapter";
 
@@ -165,7 +166,7 @@ export default {
               (env as Record<string, string>)[key] || "",
           });
           const cycleResult = await runOrchestrator(
-            { db, llm, callbacks },
+            { db, llm, callbacks, modelRegistrySeed: MODEL_REGISTRY_SEED },
             { fromCron: true },
           );
           if (cycleResult.skipped) {

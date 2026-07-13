@@ -21,6 +21,8 @@ import {
   getPersona,
   listPersonas,
   derivePersonaSlug,
+  getModelRegistry,
+  type ModelRegistry,
 } from '../index';
 
 
@@ -31,6 +33,8 @@ interface CreatePersonaBody {
   slug?: string;
   name?: string;
   systemPromptTemplate?: string;
+  /** Optional per-persona model binding — validated against the registry when provided. */
+  model?: string;
   operatorContextId?: number;
   forkedFromId?: number;
 }
@@ -84,7 +88,19 @@ export async function handleGetPersona(db: DrizzleD1, personaId: string | number
 /**
  * POST /personas - Create a new persona (password protected)
  */
-export async function handleCreatePersona(db: DrizzleD1, body: CreatePersonaBody, expectedPassword: string | null) {
+export async function handleCreatePersona(
+  db: DrizzleD1,
+  body: CreatePersonaBody,
+  expectedPassword: string | null,
+  /**
+   * Registry seed from the platform layer (constants → D1 bootstrap). When
+   * provided and body.model is set, the model is validated against the D1
+   * registry; unknown model → loud 400 listing valid ids (I1/I4). When the
+   * platform passes no seed, an explicit body.model is rejected rather than
+   * stored unvalidated.
+   */
+  registrySeed: ModelRegistry | null = null,
+) {
   if (!expectedPassword) {
     return {
       error: 'Persona creation is disabled (missing admin password guard)',
@@ -130,6 +146,26 @@ export async function handleCreatePersona(db: DrizzleD1, body: CreatePersonaBody
     };
   }
 
+  // Optional per-persona model binding — registry-validated, never stored blind.
+  const requestedModel = typeof body.model === 'string' ? body.model.trim() : '';
+  if (requestedModel) {
+    if (!registrySeed) {
+      return {
+        error: 'Model selection is not available on this create path',
+        status: 400,
+        code: 'MODEL_NOT_SUPPORTED'
+      };
+    }
+    const registry = await getModelRegistry(db, registrySeed);
+    if (!registry.models.some((m) => m.id === requestedModel)) {
+      return {
+        error: `Unknown model '${requestedModel}'. Valid: ${registry.models.map((m) => m.id).join(', ')}`,
+        status: 400,
+        code: 'INVALID_MODEL'
+      };
+    }
+  }
+
   const existing = await listPersonas(db, true);
   if (existing.some((persona: any) => persona.slug === slug)) {
     return { error: `Slug '${slug}' already exists`, status: 409, code: 'SLUG_CONFLICT' };
@@ -146,6 +182,7 @@ export async function handleCreatePersona(db: DrizzleD1, body: CreatePersonaBody
     name: name || slug,
     slug,
     systemPromptTemplate: template,
+    model: requestedModel || null,
     operatorContextId: operatorContextId != null ? String(operatorContextId) : null,
     forkedFromId,
     createdAt: now,

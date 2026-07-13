@@ -120,6 +120,14 @@ export async function ensureTablesExist(db: D1Database): Promise<void> {
       // Column already exists, ignore
     }
 
+    // Add model column to personas for per-persona model binding
+    // (model-registry resolution ladder: options > personas.model > state > default)
+    try {
+      await db.prepare(`ALTER TABLE personas ADD COLUMN model TEXT`).run();
+    } catch {
+      // Column already exists, ignore
+    }
+
   } catch (e) {
     console.error('Table creation error:', e);
   }
