@@ -17,14 +17,37 @@ import {
   addColdStorage,
   saveNote,
   logHistory,
+  queueQuickFollowup,
 } from '../index';
 
 type JsonBody = Record<string, unknown>;
 
+/** Max visitor-name length for the message `from` field. */
+const VISITOR_FROM_MAX = 64;
+
 /**
- * POST /message - User sends a message to the entity
+ * Sanitizes an optional visitor `from` name: trimmed, ≤64 chars, no control
+ * characters. Returns the clean name, null when absent, or 'invalid' when a
+ * value was PROVIDED but unusable — callers must reject 'invalid' loudly.
+ */
+export function sanitizeVisitorFrom(raw: unknown): string | null | 'invalid' {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'string') return 'invalid';
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > VISITOR_FROM_MAX) return 'invalid';
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return 'invalid';
+  return trimmed;
+}
+
+/**
+ * POST /message - User or fleet visitor sends a message to the entity
  *
- * @downstream logHistory — appends user_message event to history table
+ * Accepts optional `from` metadata for signed inbound attribution, and queues
+ * a quick follow-up so message arrivals can bypass the normal cycle interval.
+ *
+ * @downstream logHistory — appends user_message event to history table;
+ *   queueQuickFollowup — sets quick_followup_at + reason
  * @upstream platforms/cloudflare/src/routes/registry.ts
  * @pattern basin-pattern — message insertion is a history append, never an update
  * @antipattern Do NOT update or overwrite history entries — history is append-only
@@ -32,11 +55,27 @@ type JsonBody = Record<string, unknown>;
 export async function handlePostMessage(db: DrizzleD1, body: JsonBody) {
   const content = body.content as string | undefined;
   const image = body.image as string | undefined;
-  if (content || image) {
-    await logHistory({ db, type: 'user_message', content: content || '[image only]', internal: image || null });
-    return { success: true };
+  if (!content && !image) {
+    return { error: 'No content', status: 400 };
   }
-  return { error: 'No content', status: 400 };
+
+  const from = sanitizeVisitorFrom(body.from);
+  if (from === 'invalid') {
+    return {
+      error: `Invalid 'from': must be 1-${VISITOR_FROM_MAX} printable characters`,
+      status: 400,
+    };
+  }
+
+  await logHistory({
+    db,
+    type: 'user_message',
+    content: content || '[image only]',
+    internal: image || null,
+    ...(from ? { metadata: { from } } : {}),
+  });
+  const followup = await queueQuickFollowup(db, { reason: 'user_message' });
+  return { success: true, followup, ...(from ? { from } : {}) };
 }
 
 /**

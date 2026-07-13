@@ -64,14 +64,14 @@ export async function runGuards(
 export async function checkQuickFollowup(
   db: DrizzleD1,
   fromCron?: boolean,
-): Promise<boolean> {
-  if (!fromCron) return false;
+): Promise<string | null> {
+  if (!fromCron) return null;
 
   const quickFollowupAt = await getState(db, "quick_followup_at");
-  if (!quickFollowupAt) return false;
+  if (!quickFollowupAt) return null;
 
   const followupTime = new Date(quickFollowupAt).getTime();
-  if (Date.now() < followupTime) return false;
+  if (Date.now() < followupTime) return null;
 
   const followupReason = await getState(db, "quick_followup_reason");
   console.log(
@@ -80,7 +80,7 @@ export async function checkQuickFollowup(
   await setState(db, "quick_followup_at", null);
   await setState(db, "quick_followup_reason", null);
   await setState(db, "quick_followup_active", "true");
-  return true;
+  return followupReason ?? "quick_followup";
 }
 
 // =============================================================================

@@ -51,6 +51,11 @@ export { type DrizzleD1, createDrizzleClient } from "./client";
 // Key-value store for runtime configuration and state.
 // =============================================================================
 export { getState, setState } from "./state";
+export {
+  queueQuickFollowup,
+  type QueueQuickFollowupOptions,
+  type QueueQuickFollowupResult,
+} from "./quick-followup";
 
 // =============================================================================
 // HISTORY TABLE

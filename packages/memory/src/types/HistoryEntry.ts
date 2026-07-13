@@ -53,4 +53,10 @@ export interface HistoryEntry {
    * Added in v23.
    */
   meter_snapshot: string | null;
+
+  /**
+   * Optional JSON blob for entry provenance — e.g. {"from":"Delphi"} for
+   * visitor-signed user_message rows.
+   */
+  metadata?: string | null;
 }

@@ -53,8 +53,10 @@ export async function handlePostLearned(db: DrizzleD1, body: Record<string, unkn
       const updates: Record<string, unknown> = {};
       if (body.content) updates.content = body.content;
       if (body.confidence) updates.confidence = body.confidence;
-      await updateLearned(db, body.id as number, updates);
-      return { success: true };
+      const updated = await updateLearned(db, body.id as number, updates);
+      return updated
+        ? { success: true }
+        : { success: false, error: `Learned fact ${body.id} not found`, status: 404 };
     } else if (body.content) {
       const result = await addLearned(db, body.content as string, body.confidence as LearnedConfidence | undefined, body.supporting as string | undefined);
       return { success: true, id: result.id };
@@ -120,24 +122,43 @@ export async function handlePostQuestion(db: DrizzleD1, body: Record<string, unk
         if (!body.note) {
           return { success: false, error: 'note content required', status: 400 };
         }
-        await addQuestionNote(db, body.id as number, body.note as string, (body.set_exploring as boolean) ?? false);
-        return { success: true };
+        const noted = await addQuestionNote(
+          db,
+          body.id as number,
+          body.note as string,
+          (body.set_exploring as boolean) ?? false,
+        );
+        return noted.success
+          ? { success: true }
+          : { success: false, error: 'question not found', status: 404 };
       }
 
       case 'resolve': {
         if (!body.id) {
           return { success: false, error: 'id required for resolve', status: 400 };
         }
-        await resolveQuestion(db, body.id as number, (body.resolved_into as string) ?? null);
-        return { success: true };
+        const resolved = await resolveQuestion(
+          db,
+          body.id as number,
+          (body.resolved_into as string) ?? null,
+        );
+        return resolved
+          ? { success: true }
+          : { success: false, error: `Question ${body.id} not found`, status: 404 };
       }
 
       case 'dissolve': {
         if (!body.id) {
           return { success: false, error: 'id required for dissolve', status: 400 };
         }
-        await dissolveQuestion(db, body.id as number, (body.reason as string) ?? null);
-        return { success: true };
+        const dissolved = await dissolveQuestion(
+          db,
+          body.id as number,
+          (body.reason as string) ?? null,
+        );
+        return dissolved
+          ? { success: true }
+          : { success: false, error: `Question ${body.id} not found`, status: 404 };
       }
 
       case 'list': {

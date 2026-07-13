@@ -88,10 +88,12 @@ export async function runThinkingCycle(
   // flag is consumed by checkQuickFollowup below only after all guards pass,
   // so a genuinely blocked cycle does not swallow the user's Think Now.
   let force = options.force;
+  let followupReason: string | null = null;
   if (options.fromCron && !force) {
     const quickFollowupAt = await getState(db, "quick_followup_at");
     if (quickFollowupAt && Date.now() >= new Date(quickFollowupAt).getTime()) {
       force = true;
+      followupReason = (await getState(db, "quick_followup_reason")) ?? null;
     }
   }
 
@@ -104,7 +106,8 @@ export async function runThinkingCycle(
   if (guardResult) return guardResult;
 
   // --- Quick followup bypass (consumes the flag) ---
-  const quickFollowup = await checkQuickFollowup(db, options.fromCron);
+  const quickFollowupReasonFromConsume = await checkQuickFollowup(db, options.fromCron);
+  const quickFollowup = quickFollowupReasonFromConsume !== null;
 
   // --- Set last_wake_time early to prevent cron race conditions ---
   const now = new Date();
@@ -128,7 +131,13 @@ export async function runThinkingCycle(
   // --- Create cycle record ---
   const cycleId = await createCycle(db, {
     model,
-    trigger: options.trigger || (options.fromCron ? "cron" : "think-now"),
+    trigger:
+      options.trigger ||
+      (followupReason === "user_message"
+        ? "user_message"
+        : options.fromCron
+          ? "cron"
+          : "think-now"),
     cycleInterval: promptResult.cacheStrategy.cycleInterval,
     loopCount,
     cacheTtl: promptResult.cacheStrategy.ttl,

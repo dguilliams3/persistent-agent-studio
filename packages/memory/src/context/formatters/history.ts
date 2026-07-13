@@ -109,6 +109,28 @@ function isBase64Image(content: string | null | undefined): boolean {
 }
 
 /**
+ * Extracts a visitor sender name from history metadata (object, JSON string,
+ * or null). Defensive by design: malformed metadata must NEVER break context
+ * assembly — any parse failure returns null and the entry renders as USER.
+ */
+export function parseSenderFrom(metadata: unknown): string | null {
+  if (!metadata) return null;
+  let parsed: unknown = metadata;
+  if (typeof metadata === 'string') {
+    try {
+      parsed = JSON.parse(metadata);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const from = (parsed as Record<string, unknown>).from;
+  if (typeof from !== 'string') return null;
+  const trimmed = from.trim();
+  return trimmed || null;
+}
+
+/**
  * Formats a single history entry for context display.
  *
  * This is the core formatting function that handles all entry types.
@@ -144,8 +166,10 @@ export function formatHistoryEntry(
       if (hasImage && collectImages) {
         userImages.push({ time: timeStr, image: entry.internal!, text: entry.content });
       }
+      const senderName = parseSenderFrom(entry.metadata);
+      const label = senderName ? `FROM ${senderName.toUpperCase()}` : 'USER';
       // For prefix (cached) images, show they existed but don't include actual data
-      return `[${timeStr}] USER: "${entry.content}"${hasImage ? (collectImages ? ' [sent an image - see below]' : ' [sent an image]') : ''}`;
+      return `[${timeStr}] ${label}: "${entry.content}"${hasImage ? (collectImages ? ' [sent an image - see below]' : ' [sent an image]') : ''}`;
     }
 
     case 'message_to_user':
