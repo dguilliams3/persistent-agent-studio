@@ -17,14 +17,28 @@
 import type { GuardResult, SleepState } from "../types";
 import {
   getActivePersonaId,
+  historyTable,
   getPersona,
   getState,
   HISTORY_TYPES,
   logHistory,
+  parseDbTimestamp,
   setState,
+  and,
+  desc,
+  eq,
+  inArray,
 } from "@persistence/db";
 import type { DrizzleD1, PersonaOptions } from "@persistence/db";
 import { getPendingBatches } from "@persistence/llm";
+
+const UNFED_WAKE_THRESHOLD = 3;
+const MAX_EFFECTIVE_INTERVAL_SECONDS = 3600;
+const FED_WAKE_TYPES = [
+  HISTORY_TYPES.USER_MESSAGE,
+  HISTORY_TYPES.WEB_DIGEST,
+  HISTORY_TYPES.SEARCH_RESULT,
+] as const;
 
 // =============================================================================
 // INTERVAL GUARD
@@ -68,6 +82,31 @@ export async function checkIntervalGuard(
   }
 
   return { proceed: true };
+}
+
+/**
+ * @description Resolve the effective cadence interval for the next cron eligibility check.
+ *
+ * Adaptive cadence is stored as persona-scoped state so skipped cron ticks do
+ * not need to rediscover the backoff schedule from history every time. Invalid
+ * or missing state falls back to the caller-provided base interval.
+ *
+ * @param db - Database instance
+ * @param baseIntervalSeconds - Persona's configured base interval
+ * @param options - Persona options for state queries
+ * @returns Effective interval seconds bounded to the global cap
+ */
+export async function getEffectiveIntervalSeconds(
+  db: DrizzleD1,
+  baseIntervalSeconds: number,
+  options: PersonaOptions = {},
+): Promise<number> {
+  const storedEffective = await getState(db, "effective_interval_seconds", options);
+  const parsed = Number.parseInt(storedEffective ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < baseIntervalSeconds) {
+    return baseIntervalSeconds;
+  }
+  return Math.min(parsed, MAX_EFFECTIVE_INTERVAL_SECONDS);
 }
 
 // =============================================================================
@@ -278,6 +317,75 @@ export async function checkCostCeilingGuard(
   };
 }
 
+/**
+ * @description Recompute adaptive cadence state after a wake is admitted to run.
+ *
+ * This runs once per executed wake, using the PREVIOUS `last_wake_time` as the
+ * boundary for "did anything new arrive since the prior cycle". Updating here
+ * (instead of in every skipped cron tick) prevents the same unfed wake from
+ * being counted repeatedly while the longer effective interval elapses.
+ *
+ * @param db - Database instance
+ * @param input.baseIntervalSeconds - Persona's configured base interval
+ * @param input.previousWakeTime - Prior cycle's `last_wake_time` before the current wake overwrote it
+ * @param input.options - Persona options for state/history queries
+ */
+export async function recordAdaptiveCadenceAfterWakeAdmission(
+  db: DrizzleD1,
+  input: {
+    baseIntervalSeconds: number;
+    previousWakeTime: string | undefined;
+    options?: PersonaOptions;
+  },
+): Promise<void> {
+  const options = input.options ?? {};
+  const baseIntervalSeconds = input.baseIntervalSeconds;
+
+  if (!input.previousWakeTime) {
+    await setState(db, "unfed_wake_count", "0", options);
+    await setState(db, "effective_interval_seconds", String(baseIntervalSeconds), options);
+    return;
+  }
+
+  const personaId = options.personaId ?? await getActivePersonaId(db);
+  const latestFedSignal = await db
+    .select({ createdAt: historyTable.createdAt })
+    .from(historyTable)
+    .where(
+      and(
+        eq(historyTable.personaId, personaId),
+        inArray(historyTable.type, [...FED_WAKE_TYPES]),
+      ),
+    )
+    .orderBy(desc(historyTable.createdAt))
+    .get();
+
+  const previousWakeMs = parseDbTimestamp(input.previousWakeTime).getTime();
+  const latestFedMs = latestFedSignal?.createdAt
+    ? parseDbTimestamp(latestFedSignal.createdAt).getTime()
+    : null;
+
+  if (latestFedMs !== null && latestFedMs > previousWakeMs) {
+    await setState(db, "unfed_wake_count", "0", options);
+    await setState(db, "effective_interval_seconds", String(baseIntervalSeconds), options);
+    return;
+  }
+
+  const previousUnfedCount = Number.parseInt(
+    (await getState(db, "unfed_wake_count", options)) ?? "0",
+    10,
+  );
+  const currentEffective = await getEffectiveIntervalSeconds(db, baseIntervalSeconds, options);
+  const nextUnfedCount = Number.isFinite(previousUnfedCount) ? previousUnfedCount + 1 : 1;
+  const nextEffective =
+    nextUnfedCount < UNFED_WAKE_THRESHOLD
+      ? baseIntervalSeconds
+      : Math.min(currentEffective * 2, MAX_EFFECTIVE_INTERVAL_SECONDS);
+
+  await setState(db, "unfed_wake_count", String(nextUnfedCount), options);
+  await setState(db, "effective_interval_seconds", String(nextEffective), options);
+}
+
 // =============================================================================
 // COMBINED GUARD
 // =============================================================================
@@ -335,9 +443,14 @@ export async function runAllGuards(
   }
 
   // 4. Interval guard - enforce minimum interval (can be forced)
-  const intervalResult = await checkIntervalGuard(
+  const effectiveIntervalSeconds = await getEffectiveIntervalSeconds(
     db,
     config.intervalSeconds,
+    options,
+  );
+  const intervalResult = await checkIntervalGuard(
+    db,
+    effectiveIntervalSeconds,
     config.force,
     options,
   );

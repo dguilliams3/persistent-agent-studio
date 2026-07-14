@@ -1,5 +1,8 @@
 /**
  * Honest trigger tests — F-B10 (RUN-20260712-2013)
+ *
+ * A queued user-message followup must stamp cycles.trigger = "user_message",
+ * not generic cron/think-now vocabulary.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +11,7 @@ const {
   createCycleMock,
   getStateMock,
   setStateMock,
+  recordAdaptiveCadenceAfterWakeAdmissionMock,
   runGuardsMock,
   checkQuickFollowupMock,
   resolveProviderConfigMock,
@@ -16,6 +20,7 @@ const {
   createCycleMock: vi.fn(),
   getStateMock: vi.fn(),
   setStateMock: vi.fn(),
+  recordAdaptiveCadenceAfterWakeAdmissionMock: vi.fn(),
   runGuardsMock: vi.fn(),
   checkQuickFollowupMock: vi.fn(),
   resolveProviderConfigMock: vi.fn(),
@@ -34,6 +39,10 @@ vi.mock('./prechecks', () => ({
   resolveProviderConfig: resolveProviderConfigMock,
 }));
 
+vi.mock('../loop/guards', () => ({
+  recordAdaptiveCadenceAfterWakeAdmission: recordAdaptiveCadenceAfterWakeAdmissionMock,
+}));
+
 vi.mock('./providers', () => ({
   runNonAnthropicCycle: runNonAnthropicCycleMock,
   runAnthropicCycle: vi.fn(),
@@ -46,6 +55,7 @@ describe('runThinkingCycle trigger honesty', () => {
     createCycleMock.mockReset();
     getStateMock.mockReset();
     setStateMock.mockReset();
+    recordAdaptiveCadenceAfterWakeAdmissionMock.mockReset();
     runGuardsMock.mockReset();
     checkQuickFollowupMock.mockReset();
     resolveProviderConfigMock.mockReset();

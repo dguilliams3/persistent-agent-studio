@@ -4,9 +4,12 @@
  *
  * Tests cover:
  * - checkIntervalGuard() - minimum interval enforcement
+ * - getEffectiveIntervalSeconds() - adaptive cadence state lookup
  * - checkSleepGuard() - sleep state handling
  * - checkBatchGuard() - batch mode handling
+ * - checkCostCeilingGuard() - spend breaker auto-pause handling
  * - checkRunningGuard() - concurrent cycle prevention
+ * - recordAdaptiveCadenceAfterWakeAdmission() - adaptive cadence progression/reset
  * - runAllGuards() - combined guard execution
  * - getSleepState() - sleep state retrieval
  *
@@ -16,10 +19,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   checkIntervalGuard,
+  getEffectiveIntervalSeconds,
   checkSleepGuard,
   checkBatchGuard,
   checkCostCeilingGuard,
   checkRunningGuard,
+  recordAdaptiveCadenceAfterWakeAdmission,
   runAllGuards,
   getSleepState,
 } from "./guards";
@@ -29,10 +34,24 @@ vi.mock("@persistence/db", () => ({
   getActivePersonaId: vi.fn(),
   getPersona: vi.fn(),
   getState: vi.fn(),
+  historyTable: {
+    createdAt: "createdAt",
+    personaId: "personaId",
+    type: "type",
+  },
   logHistory: vi.fn(),
   HISTORY_TYPES: {
+    USER_MESSAGE: "user_message",
+    WEB_DIGEST: "web_digest",
+    SEARCH_RESULT: "search_result",
     STATUS_UPDATE: "status_update",
   },
+  parseDbTimestamp: (timestamp: string) =>
+    new Date(timestamp.includes("T") ? timestamp : timestamp.replace(" ", "T") + "Z"),
+  and: vi.fn(),
+  desc: vi.fn((value: unknown) => value),
+  eq: vi.fn(),
+  inArray: vi.fn(),
   setState: vi.fn(),
 }));
 
@@ -58,8 +77,23 @@ const mockGetPendingBatches = vi.mocked(getPendingBatches);
 /**
  * Create a mock DrizzleD1
  */
-function createMockDb() {
-  return {} as Parameters<typeof checkIntervalGuard>[0];
+function createMockDb(
+  options: { latestFedCreatedAt?: string | null } = {},
+) {
+  const latestFedCreatedAt = options.latestFedCreatedAt ?? null;
+  return {
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(() => ({
+            get: vi.fn(async () =>
+              latestFedCreatedAt ? { createdAt: latestFedCreatedAt } : undefined,
+            ),
+          })),
+        })),
+      })),
+    })),
+  } as unknown as Parameters<typeof checkIntervalGuard>[0];
 }
 
 /**
@@ -165,6 +199,32 @@ describe("checkIntervalGuard", () => {
       const result = await checkIntervalGuard(db, 600);
       expect(result.proceed).toBe(false);
     });
+  });
+});
+
+// ============================================================================
+// getEffectiveIntervalSeconds()
+// ============================================================================
+
+describe("getEffectiveIntervalSeconds", () => {
+  const db = createMockDb();
+
+  it("falls back to the base interval when no adaptive state exists", async () => {
+    mockStateValues({
+      effective_interval_seconds: undefined,
+    });
+
+    const result = await getEffectiveIntervalSeconds(db, 300);
+    expect(result).toBe(300);
+  });
+
+  it("uses the stored effective interval when it is valid", async () => {
+    mockStateValues({
+      effective_interval_seconds: "1200",
+    });
+
+    const result = await getEffectiveIntervalSeconds(db, 300);
+    expect(result).toBe(1200);
   });
 });
 
@@ -394,6 +454,75 @@ describe("checkCostCeilingGuard", () => {
 });
 
 // ============================================================================
+// recordAdaptiveCadenceAfterWakeAdmission()
+// ============================================================================
+
+describe("recordAdaptiveCadenceAfterWakeAdmission", () => {
+  it("resets cadence to base when no previous wake exists", async () => {
+    const db = createMockDb();
+
+    await recordAdaptiveCadenceAfterWakeAdmission(db, {
+      baseIntervalSeconds: 300,
+      previousWakeTime: undefined,
+    });
+
+    expect(mockSetState).toHaveBeenCalledWith(db, "unfed_wake_count", "0", {});
+    expect(mockSetState).toHaveBeenCalledWith(
+      db,
+      "effective_interval_seconds",
+      "300",
+      {},
+    );
+  });
+
+  it("resets cadence when a fed signal arrived since the previous wake", async () => {
+    const db = createMockDb({
+      latestFedCreatedAt: "2026-07-13 20:00:00",
+    });
+    mockStateValues({
+      unfed_wake_count: "4",
+      effective_interval_seconds: "2400",
+    });
+
+    await recordAdaptiveCadenceAfterWakeAdmission(db, {
+      baseIntervalSeconds: 300,
+      previousWakeTime: "2026-07-13 19:00:00",
+    });
+
+    expect(mockSetState).toHaveBeenCalledWith(db, "unfed_wake_count", "0", {});
+    expect(mockSetState).toHaveBeenCalledWith(
+      db,
+      "effective_interval_seconds",
+      "300",
+      {},
+    );
+  });
+
+  it("increments unfed count and doubles the cadence once the threshold is reached", async () => {
+    const db = createMockDb({
+      latestFedCreatedAt: "2026-07-13 18:00:00",
+    });
+    mockStateValues({
+      unfed_wake_count: "2",
+      effective_interval_seconds: "300",
+    });
+
+    await recordAdaptiveCadenceAfterWakeAdmission(db, {
+      baseIntervalSeconds: 300,
+      previousWakeTime: "2026-07-13 19:00:00",
+    });
+
+    expect(mockSetState).toHaveBeenCalledWith(db, "unfed_wake_count", "3", {});
+    expect(mockSetState).toHaveBeenCalledWith(
+      db,
+      "effective_interval_seconds",
+      "600",
+      {},
+    );
+  });
+});
+
+// ============================================================================
 // checkRunningGuard()
 // ============================================================================
 
@@ -513,6 +642,21 @@ describe("runAllGuards", () => {
       const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("Interval");
+    });
+
+    it("uses the stored effective interval for cron gating", async () => {
+      const seventySecondsAgo = new Date(Date.now() - 70000).toISOString();
+      mockStateValues({
+        is_running: "true",
+        effective_interval_seconds: "120",
+        sleep_until: undefined,
+        last_wake_time: seventySecondsAgo,
+      });
+      mockGetPendingBatches.mockResolvedValue([]);
+
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
+      expect(result.proceed).toBe(false);
+      expect(result.reason).toContain("120");
     });
   });
 

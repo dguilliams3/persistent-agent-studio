@@ -30,6 +30,7 @@
 
 import type { DrizzleD1 } from "@persistence/db";
 import { getState, setState, createCycle } from "@persistence/db";
+import { recordAdaptiveCadenceAfterWakeAdmission } from "../loop/guards";
 import {
   runGuards,
   checkQuickFollowup,
@@ -77,17 +78,23 @@ export async function runThinkingCycle(
   options: CycleOptions = {},
 ): Promise<OrchestratorResult> {
   const { db, callbacks } = config;
+  const previousWakeTime = await getState(db, "last_wake_time", config.personaOptions);
 
-  // --- Quick-followup PEEK ---
-  // A pending quick_followup_at (the Think Now button, cache primes, search
-  // follow-ups) must bypass the interval guard — but if guards run first, the
-  // cycle returns "Interval not elapsed" before the flag is ever read, making
-  // /think-now a silent no-op that waits out the full cycle interval. Peek the
-  // flag WITHOUT consuming it and pass force to the interval guard (force
-  // bypasses ONLY the interval — running/sleep/batch guards still apply). The
-  // flag is consumed by checkQuickFollowup below only after all guards pass,
-  // so a genuinely blocked cycle does not swallow the user's Think Now.
+  // --- Quick-followup PEEK (bugfix 2026-07-11) ---
+  // A pending quick_followup_at (Think Now button, cache prime, search
+  // follow-up) is supposed to bypass the interval guard — but runGuards
+  // previously ran (and returned on "Interval not elapsed") BEFORE
+  // checkQuickFollowup ever read the flag, making /think-now a no-op that
+  // silently waited out the full cycle interval. Peek the flag here WITHOUT
+  // consuming it and pass force to the interval guard (force bypasses ONLY
+  // the interval — running/sleep/batch guards still apply). The flag is
+  // consumed by checkQuickFollowup below only after all guards pass, so a
+  // genuinely blocked cycle does not swallow the user's Think Now.
   let force = options.force;
+  // Captured at the peek (before checkQuickFollowup consumes the flag) so the
+  // cycle record can carry an honest trigger: a wake caused by an inbound
+  // message stamps "user_message" (RUN-20260712-2013 F-B10 — the schema
+  // documented this trigger but no code path ever set it).
   let followupReason: string | null = null;
   if (options.fromCron && !force) {
     const quickFollowupAt = await getState(db, "quick_followup_at");
@@ -111,7 +118,15 @@ export async function runThinkingCycle(
 
   // --- Set last_wake_time early to prevent cron race conditions ---
   const now = new Date();
-  await setState(db, "last_wake_time", now.toISOString());
+  const baseIntervalSeconds = parseInt(
+    (await getState(db, "cycle_interval_seconds", config.personaOptions)) || "300",
+  );
+  await recordAdaptiveCadenceAfterWakeAdmission(db, {
+    baseIntervalSeconds,
+    previousWakeTime,
+    options: config.personaOptions,
+  });
+  await setState(db, "last_wake_time", now.toISOString(), config.personaOptions);
 
   // --- Context assembly ---
   const promptResult = await callbacks.buildSystemPrompt(db);
