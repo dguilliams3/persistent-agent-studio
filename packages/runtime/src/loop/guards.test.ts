@@ -18,6 +18,7 @@ import {
   checkIntervalGuard,
   checkSleepGuard,
   checkBatchGuard,
+  checkCostCeilingGuard,
   checkRunningGuard,
   runAllGuards,
   getSleepState,
@@ -25,7 +26,13 @@ import {
 
 // Mock @persistence/db
 vi.mock("@persistence/db", () => ({
+  getActivePersonaId: vi.fn(),
+  getPersona: vi.fn(),
   getState: vi.fn(),
+  logHistory: vi.fn(),
+  HISTORY_TYPES: {
+    STATUS_UPDATE: "status_update",
+  },
   setState: vi.fn(),
 }));
 
@@ -34,10 +41,13 @@ vi.mock("@persistence/llm", () => ({
   getPendingBatches: vi.fn(),
 }));
 
-import { getState, setState } from "@persistence/db";
+import { getActivePersonaId, getPersona, getState, logHistory, setState } from "@persistence/db";
 import { getPendingBatches } from "@persistence/llm";
 
+const mockGetActivePersonaId = vi.mocked(getActivePersonaId);
+const mockGetPersona = vi.mocked(getPersona);
 const mockGetState = vi.mocked(getState);
+const mockLogHistory = vi.mocked(logHistory);
 const mockSetState = vi.mocked(setState);
 const mockGetPendingBatches = vi.mocked(getPendingBatches);
 
@@ -67,6 +77,8 @@ function mockStateValues(values: Record<string, string | undefined>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetActivePersonaId.mockResolvedValue(1);
+  mockGetPersona.mockResolvedValue({ totalCostCents: 0 } as Awaited<ReturnType<typeof getPersona>>);
   // Default: no state values
   mockStateValues({});
   // Default: no pending batches
@@ -298,9 +310,9 @@ describe("checkBatchGuard", () => {
   });
 
   it("blocks when a batch is pending", async () => {
-    mockGetPendingBatches.mockResolvedValue([
-      { batch_id: "batch_123", status: "pending", duration_seconds: 45 },
-    ]);
+      mockGetPendingBatches.mockResolvedValue([
+      { batch_id: "batch_123", status: "pending", duration_seconds: 45 } as any,
+      ]);
 
     const result = await checkBatchGuard(db);
     expect(result.proceed).toBe(false);
@@ -310,21 +322,74 @@ describe("checkBatchGuard", () => {
   });
 
   it("blocks when a batch is processing", async () => {
-    mockGetPendingBatches.mockResolvedValue([
-      { batch_id: "batch_456", status: "processing", duration_seconds: 120 },
-    ]);
+      mockGetPendingBatches.mockResolvedValue([
+      { batch_id: "batch_456", status: "processing", duration_seconds: 120 } as any,
+      ]);
 
     const result = await checkBatchGuard(db);
     expect(result.proceed).toBe(false);
   });
 
   it("proceeds when all batches are completed", async () => {
-    mockGetPendingBatches.mockResolvedValue([
-      { batch_id: "batch_789", status: "completed", duration_seconds: 300 },
-    ]);
+      mockGetPendingBatches.mockResolvedValue([
+      { batch_id: "batch_789", status: "completed", duration_seconds: 300 } as any,
+      ]);
 
     const result = await checkBatchGuard(db);
     expect(result.proceed).toBe(true);
+  });
+});
+
+// ============================================================================
+// checkCostCeilingGuard()
+// ============================================================================
+
+describe("checkCostCeilingGuard", () => {
+  const db = createMockDb();
+
+  it("proceeds when no ceiling is configured", async () => {
+    mockStateValues({
+      cost_ceiling_cents: undefined,
+    });
+
+    const result = await checkCostCeilingGuard(db);
+    expect(result.proceed).toBe(true);
+    expect(mockSetState).not.toHaveBeenCalled();
+    expect(mockLogHistory).not.toHaveBeenCalled();
+  });
+
+  it("auto-pauses and logs loudly when total spend reaches the ceiling", async () => {
+    mockStateValues({
+      cost_ceiling_cents: "60000",
+    });
+    mockGetPersona.mockResolvedValue({ totalCostCents: 60000 } as Awaited<ReturnType<typeof getPersona>>);
+
+    const result = await checkCostCeilingGuard(db);
+
+    expect(result.proceed).toBe(false);
+    expect(result.reason).toContain("$600.00");
+    expect(mockSetState).toHaveBeenCalledWith(db, "is_running", "false", {});
+    expect(mockLogHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        db,
+        type: "status_update",
+        content: "auto-paused: spend ceiling reached $600.00/$600.00",
+        personaId: 1,
+      }),
+    );
+  });
+
+  it("is inert when spend is still below the configured ceiling", async () => {
+    mockStateValues({
+      cost_ceiling_cents: "60000",
+    });
+    mockGetPersona.mockResolvedValue({ totalCostCents: 59999 } as Awaited<ReturnType<typeof getPersona>>);
+
+    const result = await checkCostCeilingGuard(db);
+
+    expect(result.proceed).toBe(true);
+    expect(mockSetState).not.toHaveBeenCalled();
+    expect(mockLogHistory).not.toHaveBeenCalled();
   });
 });
 
@@ -386,7 +451,7 @@ describe("runAllGuards", () => {
       });
       mockGetPendingBatches.mockResolvedValue([]);
 
-      const result = await runAllGuards(db, defaultConfig);
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
       expect(result.proceed).toBe(true);
     });
   });
@@ -398,9 +463,26 @@ describe("runAllGuards", () => {
         sleep_until: new Date(Date.now() + 3600000).toISOString(), // Also sleeping
       });
 
-      const result = await runAllGuards(db, defaultConfig);
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("paused");
+    });
+
+    it("cost ceiling guard takes priority over cron-only guards", async () => {
+      mockStateValues({
+        is_running: "true",
+        cost_ceiling_cents: "60000",
+        sleep_until: undefined,
+        last_wake_time: new Date(Date.now() - 10000).toISOString(),
+      });
+      mockGetPersona.mockResolvedValue({ totalCostCents: 60000 } as Awaited<ReturnType<typeof getPersona>>);
+      mockGetPendingBatches.mockResolvedValue([
+        { batch_id: "batch_1", status: "pending", duration_seconds: 30 } as any,
+      ]);
+
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
+      expect(result.proceed).toBe(false);
+      expect(result.reason).toContain("Spend ceiling");
     });
 
     it("batch guard takes priority over interval guard", async () => {
@@ -410,10 +492,10 @@ describe("runAllGuards", () => {
         last_wake_time: new Date(Date.now() - 10000).toISOString(), // Also interval not elapsed
       });
       mockGetPendingBatches.mockResolvedValue([
-        { batch_id: "batch_1", status: "pending", duration_seconds: 30 },
+        { batch_id: "batch_1", status: "pending", duration_seconds: 30 } as any,
       ]);
 
-      const result = await runAllGuards(db, defaultConfig);
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("pending batch");
     });
@@ -428,9 +510,24 @@ describe("runAllGuards", () => {
       });
       mockGetPendingBatches.mockResolvedValue([]);
 
-      const result = await runAllGuards(db, defaultConfig);
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: true });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("Interval");
+    });
+  });
+
+  describe("manual cycles", () => {
+    it("still enforce the cost ceiling outside cron", async () => {
+      mockStateValues({
+        is_running: "true",
+        cost_ceiling_cents: "60000",
+      });
+      mockGetPersona.mockResolvedValue({ totalCostCents: 60000 } as Awaited<ReturnType<typeof getPersona>>);
+
+      const result = await runAllGuards(db, { ...defaultConfig, fromCron: false });
+      expect(result.proceed).toBe(false);
+      expect(result.reason).toContain("Spend ceiling");
+      expect(mockGetPendingBatches).not.toHaveBeenCalled();
     });
   });
 
@@ -444,6 +541,7 @@ describe("runAllGuards", () => {
       const result = await runAllGuards(db, {
         ...defaultConfig,
         force: true,
+        fromCron: true,
       });
       // Force doesn't bypass running guard
       expect(result.proceed).toBe(false);
@@ -461,6 +559,7 @@ describe("runAllGuards", () => {
       const result = await runAllGuards(db, {
         ...defaultConfig,
         force: true,
+        fromCron: true,
       });
       expect(result.proceed).toBe(true);
     });
@@ -551,6 +650,7 @@ describe("persona isolation", () => {
 
     await runAllGuards(db, {
       intervalSeconds: 60,
+      fromCron: true,
       personaOptions,
     });
 
@@ -572,6 +672,7 @@ describe("persona isolation", () => {
 
     await runAllGuards(db, {
       intervalSeconds: 60,
+      fromCron: true,
     });
 
     // All getState calls should use empty options
@@ -638,6 +739,7 @@ describe("real-world scenarios", () => {
 
       const result = await runAllGuards(db, {
         intervalSeconds: 60,
+        fromCron: true,
       });
       expect(result.proceed).toBe(true);
     });
@@ -656,6 +758,7 @@ describe("real-world scenarios", () => {
       const result = await runAllGuards(db, {
         intervalSeconds: 60,
         force: true,
+        fromCron: true,
       });
       expect(result.proceed).toBe(true);
     });
@@ -673,6 +776,7 @@ describe("real-world scenarios", () => {
 
       const result = await runAllGuards(db, {
         intervalSeconds: 60,
+        fromCron: true,
       });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("Sleeping");
@@ -687,11 +791,12 @@ describe("real-world scenarios", () => {
         last_wake_time: new Date(Date.now() - 120000).toISOString(),
       });
       mockGetPendingBatches.mockResolvedValue([
-        { batch_id: "batch_1", status: "pending", duration_seconds: 60 },
+        { batch_id: "batch_1", status: "pending", duration_seconds: 60 } as any,
       ]);
 
       const result = await runAllGuards(db, {
         intervalSeconds: 60,
+        fromCron: true,
       });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("pending batch");
@@ -707,6 +812,7 @@ describe("real-world scenarios", () => {
 
       const result = await runAllGuards(db, {
         intervalSeconds: 60,
+        fromCron: true,
       });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain("paused");

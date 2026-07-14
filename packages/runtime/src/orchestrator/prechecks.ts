@@ -21,7 +21,7 @@ import type { CycleOptions, OrchestratorResult } from "./types";
 /**
  * @description Run pre-cycle guards. Returns a skip result if blocked, null if clear.
  *
- * Running guard is always checked (even for manual triggers).
+ * Running + cost ceiling guards are always checked (even for manual triggers).
  * Cron-specific guards (batch, interval, sleep) only run for fromCron cycles.
  */
 export async function runGuards(
@@ -29,22 +29,16 @@ export async function runGuards(
   options: CycleOptions,
   personaOptions?: PersonaOptions,
 ): Promise<OrchestratorResult | null> {
-  const isRunning = await getState(db, "is_running", personaOptions);
-  if (isRunning !== "true") {
-    return { skipped: true, reason: "Loop is paused" };
-  }
-
-  if (options.fromCron) {
-    const guardResult = await runAllGuards(db, {
-      intervalSeconds: parseInt(
-        (await getState(db, "cycle_interval_seconds")) || "300",
-      ),
-      force: options.force,
-      personaOptions,
-    });
-    if (!guardResult.proceed) {
-      return { skipped: true, reason: guardResult.reason };
-    }
+  const guardResult = await runAllGuards(db, {
+    intervalSeconds: parseInt(
+      (await getState(db, "cycle_interval_seconds", personaOptions)) || "300",
+    ),
+    force: options.force,
+    fromCron: options.fromCron,
+    personaOptions,
+  });
+  if (!guardResult.proceed) {
+    return { skipped: true, reason: guardResult.reason };
   }
 
   return null;
@@ -96,7 +90,7 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 16000;
  *
  * With a registry seed (platform-supplied): the D1 registry ladder decides the
  * model — options.model > personas.model > state selected_model > registry
- * default (config-as-data: models live in D1).
+ * default (doctrine I1: models live in D1; RUN-20260712-2013 S1/FL-04).
  * Without a seed (legacy callers): options > state > DEFAULT_MODEL constant.
  */
 export async function resolveProviderConfig(

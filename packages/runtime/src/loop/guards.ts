@@ -15,7 +15,14 @@
  */
 
 import type { GuardResult, SleepState } from "../types";
-import { getState, setState } from "@persistence/db";
+import {
+  getActivePersonaId,
+  getPersona,
+  getState,
+  HISTORY_TYPES,
+  logHistory,
+  setState,
+} from "@persistence/db";
 import type { DrizzleD1, PersonaOptions } from "@persistence/db";
 import { getPendingBatches } from "@persistence/llm";
 
@@ -211,6 +218,67 @@ export async function checkRunningGuard(
 }
 
 // =============================================================================
+// COST CEILING GUARD
+// =============================================================================
+
+/**
+ * @description Auto-pause the loop once the persona's running spend total reaches its configured ceiling.
+ *
+ * The ceiling lives in persona-scoped state (`cost_ceiling_cents`) while the
+ * spend total lives on `personas.total_cost_cents`. When the total reaches or
+ * exceeds the ceiling this guard flips `is_running` to `false` and writes a
+ * loud `status_update` entry explaining why the loop stopped. Because the
+ * running guard sits ahead of this guard, the loud entry is naturally one-shot
+ * until an operator resumes the loop.
+ *
+ * @param db - Database instance
+ * @param options - Persona options for state/history queries
+ * @returns Guard result
+ */
+export async function checkCostCeilingGuard(
+  db: DrizzleD1,
+  options: PersonaOptions = {},
+): Promise<GuardResult> {
+  const ceilingRaw = await getState(db, "cost_ceiling_cents", options);
+  if (!ceilingRaw) {
+    return { proceed: true };
+  }
+
+  const ceilingCents = Number.parseFloat(ceilingRaw);
+  if (!Number.isFinite(ceilingCents) || ceilingCents < 0) {
+    return { proceed: true };
+  }
+
+  const personaId = options.personaId ?? await getActivePersonaId(db);
+  const persona = await getPersona(db, personaId);
+  if (!persona) {
+    return { proceed: true };
+  }
+
+  const totalCostCents = Number(persona.totalCostCents ?? 0);
+  if (!Number.isFinite(totalCostCents) || totalCostCents < ceilingCents) {
+    return { proceed: true };
+  }
+
+  await setState(db, "is_running", "false", options);
+  await logHistory({
+    db,
+    type: HISTORY_TYPES.STATUS_UPDATE,
+    content: `auto-paused: spend ceiling reached ${formatUsd(totalCostCents)}/${formatUsd(ceilingCents)}`,
+    internal: `Breaker tripped at ${totalCostCents}c with ceiling ${ceilingCents}c`,
+    silent: true,
+    autoCaptureMeterSnapshot: false,
+    personaId,
+  });
+
+  return {
+    proceed: false,
+    reason: `Spend ceiling reached (${formatUsd(totalCostCents)} / ${formatUsd(ceilingCents)})`,
+    softSkip: false,
+  };
+}
+
+// =============================================================================
 // COMBINED GUARD
 // =============================================================================
 
@@ -219,9 +287,10 @@ export async function checkRunningGuard(
  *
  * Guards are checked in order:
  * 1. Running guard (prevents concurrent cycles)
- * 2. Sleep guard (respects SLEEP action)
- * 3. Batch guard (handles batch mode)
- * 4. Interval guard (enforces minimum interval)
+ * 2. Cost ceiling guard (auto-pauses on spend breach)
+ * 3. Batch guard (cron-only; handles batch mode)
+ * 4. Interval guard (cron-only; enforces minimum interval)
+ * 5. Sleep guard (cron-only; respects SLEEP action)
  *
  * BUG-010 FIX: All guards now accept PersonaOptions to ensure proper
  * persona isolation in multi-persona scenarios.
@@ -235,6 +304,7 @@ export async function runAllGuards(
   config: {
     intervalSeconds: number;
     force?: boolean;
+    fromCron?: boolean;
     personaOptions?: PersonaOptions;
   },
 ): Promise<GuardResult> {
@@ -248,13 +318,23 @@ export async function runAllGuards(
     return runningResult;
   }
 
-  // 2. Batch guard - block while batches are pending/processing
+  // 2. Cost ceiling guard - auto-pause on ceiling breach
+  const costResult = await checkCostCeilingGuard(db, options);
+  if (!costResult.proceed) {
+    return costResult;
+  }
+
+  if (!config.fromCron) {
+    return { proceed: true };
+  }
+
+  // 3. Batch guard - block while batches are pending/processing
   const batchResult = await checkBatchGuard(db, options);
   if (!batchResult.proceed) {
     return batchResult;
   }
 
-  // 3. Interval guard - enforce minimum interval (can be forced)
+  // 4. Interval guard - enforce minimum interval (can be forced)
   const intervalResult = await checkIntervalGuard(
     db,
     config.intervalSeconds,
@@ -265,11 +345,21 @@ export async function runAllGuards(
     return intervalResult;
   }
 
-  // 4. Sleep guard - respect explicit sleep
+  // 5. Sleep guard - respect explicit sleep
   const sleepResult = await checkSleepGuard(db, options);
   if (!sleepResult.proceed) {
     return sleepResult;
   }
 
   return { proceed: true };
+}
+
+/**
+ * @description Format cents as operator-facing dollars for breaker messages.
+ *
+ * @param cents - Spend amount in cents (fractional cents allowed)
+ * @returns Dollar string with two decimal places
+ */
+function formatUsd(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
