@@ -301,10 +301,10 @@ function formatHistoryEntry(
           text: h.content,
         });
       }
-      return `[${timeStr}] USER: "${h.content}"${hasImage ? (collectImages ? " [sent an image - see below]" : " [sent an image]") : ""}`;
+      return `[${timeStr}] DAN: "${h.content}"${hasImage ? (collectImages ? " [sent an image - see below]" : " [sent an image]") : ""}`;
     }
-    case "message_to_user":
-      return `[${timeStr}] MESSAGED USER: "${h.content}"`;
+    case "message_to_dan":
+      return `[${timeStr}] MESSAGED DAN: "${h.content}"`;
     case "thought":
       return `[${timeStr}] THOUGHT: ${h.content}`;
     case "curiosity":
@@ -336,17 +336,17 @@ function formatHistoryEntry(
       const isUserArtImage = h.content && h.content.startsWith("data:image");
       if (isUserArtImage && collectImages) {
         const userArtPrompt =
-          h.internal?.replace(/^User's prompt:\s*/, "") || "untitled";
+          h.internal?.replace(/^(?:User's|Dan's) prompt:\s*/, "") || "untitled";
         userImages.push({
           time: timeStr,
           image: h.content,
           text: `User's art: ${userArtPrompt}`,
         });
       }
-      return `[${timeStr}] USER MADE ART: "${h.internal?.replace(/^User's prompt:\s*/, "") || "untitled"}"${isUserArtImage && collectImages ? " [see USER'S IMAGES section]" : ""}`;
+      return `[${timeStr}] DAN MADE ART: "${h.internal?.replace(/^(?:User's|Dan's) prompt:\s*/, "") || "untitled"}"${isUserArtImage && collectImages ? " [see USER'S IMAGES section]" : ""}`;
     }
     case "art_shared":
-      return `[${timeStr}] SHARED ART WITH USER: "${h.content}"`;
+      return `[${timeStr}] SHARED ART WITH DAN: "${h.content}"`;
     case "user_video": {
       const hasVideoGif =
         h.internal &&
@@ -358,7 +358,7 @@ function formatHistoryEntry(
           text: h.content || "Video from user",
         });
       }
-      return `[${timeStr}] USER SENT VIDEO: "${h.content || "video"}"${hasVideoGif && collectImages ? " [see USER'S IMAGES section]" : ""}`;
+      return `[${timeStr}] DAN SENT VIDEO: "${h.content || "video"}"${hasVideoGif && collectImages ? " [see USER'S IMAGES section]" : ""}`;
     }
     case "note_saved":
       return `[${timeStr}] SAVED TO NOTEBOOK: "${h.content}" - ${h.internal || ""}`;
@@ -489,9 +489,9 @@ export async function buildSystemPrompt(
     (await getState(db, "cycle_interval_seconds")) || "300",
   );
   const lastWakeTime = await getState(db, "last_wake_time");
-  const userStatus = await getState(db, "user_status");
-  const userStatusUpdated = await getState(db, "user_status_updated");
-  const userStatusSetBy = await getState(db, "user_status_set_by");
+  const userStatus = await getState(db, "dan_status");
+  const userStatusUpdated = await getState(db, "dan_status_updated");
+  const userStatusSetBy = await getState(db, "dan_status_set_by");
 
   // =========================================================================
   // 2. LOAD ALL MEMORY DATA
@@ -575,7 +575,7 @@ export async function buildSystemPrompt(
 
   const lastMessageEntry = [...history]
     .reverse()
-    .find((h) => h.type === "message_to_user");
+    .find((h) => h.type === "message_to_dan");
   const timeSinceLastMessage = lastMessageEntry
     ? Math.round(
         (now.getTime() - new Date(lastMessageEntry.created_at).getTime()) /
@@ -806,19 +806,14 @@ This preserves important information while freeing up context space.\n\n`
   const personaId = await getActivePersonaId(db);
   const persona = personaId ? await getPersona(db, personaId) : null;
   const personaIdentity = persona?.system_prompt_template || "clio";
-  // humanName: what this persona calls the human operator. Lives in the
-  // generic state KV store (same table as user_status etc.) rather than a
-  // dedicated persona column, since it's a simple per-persona setting with
-  // no query/index needs of its own. Defaults to "User" when unset. Drives
-  // both the "WHO ... IS" reference section and the dynamic MESSAGE_<NAME>
-  // tool name shown to the model (see getMessageActionDisplayName()).
-  const humanName = (await getState(db, "human_name")) || "User";
+  const restVerbsEnabled = (await getState(db, "rest_verbs_enabled")) === "true";
 
-  const toolPromptBlock = renderToolPromptBlocks({ humanName });
+  const toolPromptBlock = renderToolPromptBlocks();
   const block1_constitution =
     getStaticSystemPrompt({
       identity: personaIdentity,
-      humanName,
+      operatorName: "Dan",
+      restVerbsEnabled,
     }) + (toolPromptBlock ? `\n\n${toolPromptBlock}` : "");
 
   // Block 1 extensions: Cold storage + MY SPACE

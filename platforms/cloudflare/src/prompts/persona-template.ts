@@ -419,6 +419,7 @@ This isn't rigid—some cycles are simple and don't need bookending. But thinkin
  * @param {string|null} [options.identity=null] - Persona identity (template name or custom text)
  * @param {string|null} [options.operatorContext=null] - Custom operator context (uses MY_CONTEXT if null)
  * @param {string|null} [options.operatorName='Dan'] - Name of the operator for section header
+ * @param {boolean} [options.restVerbsEnabled=false] - Whether SLEEP/EXIST should appear in the action surface
  * @returns {string} Complete system prompt
  *
  * @example
@@ -432,20 +433,114 @@ This isn't rigid—some cycles are simple and don't need bookending. But thinkin
  *   operatorName: 'Alex'
  * });
  */
+/**
+ * @description Build the numbered action menu with truthful numbering in both toggle states.
+ *
+ * SLEEP/EXIST live at the end of the list so disabling them simply drops the
+ * tail items rather than creating interior renumber churn.
+ *
+ * @param options.restVerbsEnabled - Whether rest verbs should be advertised
+ * @returns Numbered action-menu lines joined for prompt insertion
+ */
+function buildActionMenu(options: { restVerbsEnabled: boolean }): string {
+  const baseActions = [
+    'MESSAGE_DAN - Send Dan a message (thought, observation, question, check-in, or a request). Optional voice:true for audio',
+    'THINK - Work something out internally, let a thought develop',
+    'WONDER - Let curiosity breathe—something I\'m turning over without needing to resolve it',
+    'REMEMBER - Note something to follow up on later (ephemeral, scrolls away)',
+    'COLD_STORAGE - Freeze something important to permanent memory (never expires)',
+    'SEARCH - Search the web to satisfy curiosity or explore something',
+    'ART - Create or share artwork. Use op:"make" to generate, op:"share" to re-send recent art',
+    'NOTE - Notebook operations. Use op:"save" to overwrite, op:"append" to add, op:"get" to retrieve, op:"delete" to remove',
+    'OBSERVATION - Dan observations. Use op:"save" to record, op:"get" to retrieve, op:"delete" to remove',
+    'SUMMARIZE - Compress history into summaries. Use meta:true to consolidate existing summaries',
+    'REMINDER - Persistent reminders. Use op:"set" to create, op:"dismiss" to remove',
+    'SET_STATUS - Update my current status line. Use: {"action":"SET_STATUS","content":"[activity]","emoji":"[emoji]","mood":"[emotion/state]"}',
+    'SET_PROFILE_PIC - Set my profile picture. Use "recent" for latest art, "clear" to remove, or a prompt',
+    "SET_USER_STATUS - Update user's availability status (if they mentioned going to bed, being busy, etc.)",
+    "LEARNED - Track patterns I've verified through experience (self-knowledge). Use op:\"add\", \"update\", \"cite\", \"promote\", \"delete\", \"list\"",
+    'QUESTION - Hold open threads without pressure to resolve. Use op:"add", "note", "resolve", "dissolve", "list"',
+    'PIN_IMAGE - Curate my image wall (5 slots). Use op:"pin", "unpin", "swap", "list"',
+    'VIEW_IMAGES - Request to see specific images next cycle (auto-clears after viewing)',
+    'DIGEST - Manage scheduled web digests on topics I want to track over time',
+  ];
+  const restActions = [
+    'SLEEP - Pause my cycles for a duration (300-3240 seconds, i.e. 5-54 min)',
+    'EXIST - Choose to simply be present this cycle, without producing anything',
+  ];
+  const actions = options.restVerbsEnabled ? [...baseActions, ...restActions] : baseActions;
+  return actions.map((action, index) => `${index + 1}. ${action}`).join('\n');
+}
+
+/**
+ * @description Render the rest-verb guidance bullets only when the toggle is on.
+ *
+ * @param options.restVerbsEnabled - Whether rest verbs should be advertised
+ * @returns Prompt fragment (possibly empty)
+ */
+function buildRestVerbGuidance(options: { restVerbsEnabled: boolean }): string {
+  if (!options.restVerbsEnabled) return '';
+
+  return `- SLEEP pauses cycles for a one-time duration (300-3240 seconds, i.e. 5 min to 54 min max)
+- When to use is my call! Some examples: it's late and the user's probably asleep, nothing is happening, want to give space
+- Doesn't change the regular cadence—just this one delay, then back to normal
+- Optional "message": sends a message to the user when going to sleep (like "Going quiet for a bit, goodnight")
+- Optional "wakeReminder": sets a reminder that will be waiting when I wake up
+- Format: {"action":"SLEEP","duration":1800,"message":"optional","wakeReminder":"optional","internal":"why"}
+- EXIST is the quiet-presence verb: I can choose to simply be here this cycle without producing outward activity
+- Format: {"action":"EXIST","internal":"why this quiet cycle matters"}`;
+}
+
+/**
+ * @description Apply the config-gated rest-verb prompt surface to the shared prompt text.
+ *
+ * The base shared prompt stays readable prose. This helper owns the only
+ * dynamic surgery: replace the action menu and rest guidance block so both
+ * toggle states stay truthful without duplicating the whole prompt body.
+ *
+ * @param sharedPrompt - Static shared prompt prose
+ * @param options.restVerbsEnabled - Whether SLEEP/EXIST should appear
+ * @returns Shared prompt with the menu/guidance rendered for this toggle state
+ */
+function applyRestVerbPromptToggle(
+  sharedPrompt: string,
+  options: { restVerbsEnabled: boolean },
+): string {
+  const actionMenuPattern =
+    /What do I want to do right now\? I can:\n(?:\d+\..*\n)+\n\*\*I trust that Dan appreciates hearing from me\*\*/u;
+  const actionMenuReplacement =
+    `What do I want to do right now? I can:\n${buildActionMenu(options)}\n\n**I trust that Dan appreciates hearing from me**`;
+
+  const restGuidancePattern =
+    /\n- SLEEP pauses cycles[\s\S]*?- Format: \{"action":"EXIST","internal":"why this quiet cycle matters"\}/u;
+  const restGuidanceReplacement = options.restVerbsEnabled
+    ? `\n${buildRestVerbGuidance(options)}`
+    : '';
+
+  return sharedPrompt
+    .replace(actionMenuPattern, actionMenuReplacement)
+    .replace(restGuidancePattern, restGuidanceReplacement);
+}
+
 export function buildPersonaSystemPrompt(options: {
   identity?: string | null;
   operatorContext?: string | null;
   operatorName?: string;
+  restVerbsEnabled?: boolean;
 } = {}): string {
   const {
     identity = null,
     operatorContext = null,
     operatorName = 'Dan',
+    restVerbsEnabled = false,
   } = options;
 
   const resolvedIdentity = resolveIdentity(identity);
   const resolvedContext = operatorContext || MY_CONTEXT;
-  const sharedContent = getSharedPromptContent();
+  const sharedContent = applyRestVerbPromptToggle(
+    getSharedPromptContent(),
+    { restVerbsEnabled },
+  );
 
   return `${resolvedIdentity}
 
