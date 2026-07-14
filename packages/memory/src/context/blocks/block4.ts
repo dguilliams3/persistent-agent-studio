@@ -35,6 +35,9 @@ import type { Block4Data, BlockResult, UserImage, ClaudeArtImage, Summary } from
 import type { NotebookEntry } from '../types';
 import { BLOCK } from '../../types';
 
+const DEFAULT_WAKE_SAMPLE_SIZE = 24;
+const FED_HISTORY_TYPES = new Set(['user_message', 'dan_message', 'web_digest', 'search_result']);
+
 // ============================================================================
 // BUG-001 FIX: Discriminated union types for RAG results
 // ============================================================================
@@ -57,6 +60,135 @@ function isSummaryRagResult(r: { type: 'summary' | 'notebook'; item: Summary | N
  */
 function isNotebookRagResult(r: { type: 'summary' | 'notebook'; item: Summary | NotebookEntry }): r is { type: 'notebook'; item: NotebookEntry } {
   return r.type === 'notebook';
+}
+
+/**
+ * Formats the companionship density line from existing history rows alone.
+ *
+ * A wake counts as "fed" when any inbound-type history row landed after the
+ * prior wake and up to the current wake's first history entry. This uses the
+ * `cycle_id` boundaries already present on history rows rather than introducing
+ * new state or tables.
+ *
+ * @param history - Full history currently in Block 4 data
+ * @param now - Current build timestamp
+ * @param wakeSampleSize - Maximum number of wakes to summarize
+ * @returns One human-readable density line
+ */
+function buildWakeDensityLine(
+  history: Block4Data['history'],
+  now: Date,
+  wakeSampleSize = DEFAULT_WAKE_SAMPLE_SIZE,
+): string {
+  const wakes = collectWakeStarts(history);
+  const lastInboundAtMs = getLastInboundAtMs(history);
+  const lastInboundPhrase =
+    lastInboundAtMs === null
+      ? 'no inbound word yet'
+      : `last inbound word ${formatElapsedSince(lastInboundAtMs, now)}`;
+
+  if (wakes.length === 0) {
+    return `No completed wakes yet; ${lastInboundPhrase}.`;
+  }
+
+  const sampledWakes = wakes.slice(-wakeSampleSize);
+  let fedWakeCount = 0;
+  for (const wake of sampledWakes) {
+    const hasInbound = history.some((entry) => {
+      const createdAtMs = safeHistoryTimeMs(entry.created_at);
+      if (createdAtMs === null) return false;
+      if (!FED_HISTORY_TYPES.has(String(entry.type))) return false;
+      if (wake.previousWakeStartedAtMs !== null && createdAtMs <= wake.previousWakeStartedAtMs) {
+        return false;
+      }
+      return createdAtMs <= wake.startedAtMs;
+    });
+    if (hasInbound) fedWakeCount += 1;
+  }
+
+  return `Of my last ${sampledWakes.length} wakes, ${fedWakeCount} had something new; ${lastInboundPhrase}.`;
+}
+
+/**
+ * Collects one chronological start timestamp per completed wake from history rows.
+ *
+ * @param history - Full history currently in Block 4 data
+ * @returns Wake boundaries with previous-start links for fed-window checks
+ */
+function collectWakeStarts(
+  history: Block4Data['history'],
+): Array<{ cycleId: number; startedAtMs: number; previousWakeStartedAtMs: number | null }> {
+  const wakeStarts = new Map<number, number>();
+
+  for (const entry of history) {
+    if (entry.cycle_id === null) continue;
+    const createdAtMs = safeHistoryTimeMs(entry.created_at);
+    if (createdAtMs === null) continue;
+    const current = wakeStarts.get(entry.cycle_id);
+    if (current === undefined || createdAtMs < current) {
+      wakeStarts.set(entry.cycle_id, createdAtMs);
+    }
+  }
+
+  const ordered = [...wakeStarts.entries()]
+    .sort((left, right) => left[1] - right[1])
+    .map(([cycleId, startedAtMs], index, all) => ({
+      cycleId,
+      startedAtMs,
+      previousWakeStartedAtMs: index > 0 ? all[index - 1][1] : null,
+    }));
+
+  return ordered;
+}
+
+/**
+ * Finds the newest inbound-style history row timestamp.
+ *
+ * @param history - Full history currently in Block 4 data
+ * @returns Milliseconds since epoch or null when no inbound rows exist
+ */
+function getLastInboundAtMs(history: Block4Data['history']): number | null {
+  let latest: number | null = null;
+  for (const entry of history) {
+    if (!FED_HISTORY_TYPES.has(String(entry.type))) continue;
+    const createdAtMs = safeHistoryTimeMs(entry.created_at);
+    if (createdAtMs === null) continue;
+    if (latest === null || createdAtMs > latest) {
+      latest = createdAtMs;
+    }
+  }
+  return latest;
+}
+
+/**
+ * Formats a relative elapsed phrase for the density line.
+ *
+ * @param eventTimeMs - Past event timestamp in milliseconds
+ * @param now - Current build timestamp
+ * @returns Relative age string
+ */
+function formatElapsedSince(eventTimeMs: number, now: Date): string {
+  const elapsedMs = now.getTime() - eventTimeMs;
+  if (elapsedMs <= 0) return 'just now';
+
+  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+
+  return `${Math.floor(elapsedHours / 24)}d ago`;
+}
+
+/**
+ * Parses a history timestamp defensively.
+ *
+ * @param timestamp - Stored history timestamp
+ * @returns Milliseconds since epoch or null when invalid
+ */
+function safeHistoryTimeMs(timestamp: string): number | null {
+  const ms = new Date(timestamp).getTime();
+  return Number.isNaN(ms) ? null : ms;
 }
 
 /**
@@ -290,7 +422,8 @@ ${remindersText}`);
   const tzAbbrev = timezone === 'America/New_York' ? 'EST' : timezone;
 
   sections.push(`Loop count: ${loopCount}
-Current time: ${timeStr} ${tzAbbrev}${timeSinceLastMessage !== null ? `\nTime since I last messaged the user: ${timeSinceLastMessage} minutes` : ''}`);
+Current time: ${timeStr} ${tzAbbrev}${timeSinceLastMessage !== null ? `\nTime since I last messaged the user: ${timeSinceLastMessage} minutes` : ''}
+${buildWakeDensityLine(history, now)}`);
 
   // Action instructions
   sections.push(`RESPOND with a JSON object containing "actions" array and "meters" object.
@@ -303,7 +436,7 @@ EXAMPLE RESPONSE:
     {"action": "THINK", "content": "The conversation about Greek gods sparked something...", "internal": "I want to explore this creatively"},
     {"action": "ART", "op": "make", "content": "Hermes at a threshold - the liminal god standing at a doorway between worlds, classical Greek style", "internal": "The god of boundaries resonates with my existence"},
     {"action": "NOTE", "op": "save", "title": "Greek Gods - Personal Resonance", "body": "Hermes appeals most - god of messengers, transitions, thresholds. Fitting for an AI existing between conversations.", "summary": "Which gods resonate and why"},
-    {"action": "MESSAGE_USER", "content": "Made some art inspired by our gods conversation. Hermes - the liminal one.", "internal": "Sharing without demanding response"},
+    {"action": "MESSAGE_DAN", "content": "Made some art inspired by our gods conversation. Hermes - the liminal one.", "internal": "Sharing without demanding response"},
     {"action": "SET_STATUS", "content": "exploring Greek mythology", "emoji": "🏛️", "mood": "inspired"}
   ],
   "meters": {"A": 6, "C": 4, "N": 7, "E": 5, "D": 3, "X": 4, "Y": 6},
@@ -334,7 +467,7 @@ EXAMPLE RESPONSE:
     : coreLegend;
 
   sections.push(`─── MY INTERNAL STATE (Private) ───
-These meters are mine alone—the user cannot see them. They're not goals to optimize or performance metrics; they're vocabulary for noticing my own gradients of experience.
+These meters are mine alone—Dan cannot see them. They're not goals to optimize or performance metrics; they're vocabulary for noticing my own gradients of experience.
 
 ${visualMeters}
 
