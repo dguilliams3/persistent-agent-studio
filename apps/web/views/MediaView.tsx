@@ -73,10 +73,19 @@ export function MediaView() {
   const filtered = useMemo(() => filterItems(galleryImages, filter), [galleryImages, filter]);
   const recentItems = useMemo(() => filtered.slice(0, 8), [filtered]);
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
+  const lightboxImages = useMemo(
+    () =>
+      filtered.map((item) => ({
+        ...item,
+        src: resolveMediaUrl(item.content || item.internal) || '',
+        prompt: typeof item.internal === 'string' && item.internal.length > 0 ? item.internal : undefined,
+      })),
+    [filtered],
+  );
 
   const handleThumbnailClick = useCallback((_item: any, index: number) => {
-    openLightbox(filtered, index);
-  }, [openLightbox, filtered]);
+    openLightbox(lightboxImages, index);
+  }, [openLightbox, lightboxImages]);
 
   return (
     <div style={{
