@@ -221,9 +221,13 @@ export function ChatView() {
     () => (activeBranch === 'main' ? [] : overrides),
     [activeBranch, overrides],
   );
+  const effectiveSynthetics = useMemo(
+    () => (activeBranch === 'main' ? [] : synthetics),
+    [activeBranch, synthetics],
+  );
   const thread = useMemo(
-    () => mergeThread(history, synthetics, effectiveOverrides),
-    [history, synthetics, effectiveOverrides],
+    () => mergeThread(history, effectiveSynthetics, effectiveOverrides),
+    [history, effectiveSynthetics, effectiveOverrides],
   );
   const visibleThread = useMemo(
     () =>
