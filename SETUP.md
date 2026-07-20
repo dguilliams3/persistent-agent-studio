@@ -142,6 +142,7 @@ redeploy it:
 FRONTEND_ORIGIN = "https://<your-pages-project>.pages.dev"
 # or a comma-separated list:
 # CORS_ALLOWED_ORIGINS = "https://your-domain.com,https://<project>.pages.dev"
+toml
 ```
 
 ```bash
