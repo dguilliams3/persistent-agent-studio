@@ -142,8 +142,13 @@ redeploy it:
 FRONTEND_ORIGIN = "https://<your-pages-project>.pages.dev"
 # or a comma-separated list:
 # CORS_ALLOWED_ORIGINS = "https://your-domain.com,https://<project>.pages.dev"
-toml
 ```
+
+> **Not optional if you serve the UI from a custom domain.** The worker rejects (403)
+> any browser request whose `Origin` isn't listed in `CORS_ALLOWED_ORIGINS` /
+> `FRONTEND_ORIGIN`. Every origin your UI is served from — the `pages.dev` URL, your
+> custom domain, any non-default localhost port — must appear here, or login fails in
+> the browser with a bare "Failed to fetch" / "Load failed".
 
 ```bash
 cd platforms/cloudflare && wrangler deploy
