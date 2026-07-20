@@ -808,7 +808,7 @@ This preserves important information while freeing up context space.\n\n`
   const personaIdentity = persona?.system_prompt_template || "clio";
   const restVerbsEnabled = (await getState(db, "rest_verbs_enabled")) === "true";
 
-  const toolPromptBlock = renderToolPromptBlocks();
+  const toolPromptBlock = renderToolPromptBlocks({ restVerbsEnabled });
   const block1_constitution =
     getStaticSystemPrompt({
       identity: personaIdentity,

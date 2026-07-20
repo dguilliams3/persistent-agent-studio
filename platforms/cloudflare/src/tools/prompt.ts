@@ -28,6 +28,7 @@ interface RenderToolPromptOptions {
    * getMessageActionDisplayName() in @persistence/tools.
    */
   humanName?: string | null;
+  restVerbsEnabled?: boolean;
 }
 
 /**
@@ -43,9 +44,15 @@ export function renderToolPromptBlocks(options: RenderToolPromptOptions = {}) {
   const {
     heading = 'TOOL REGISTRY',
     includeWarnings = true,
-    humanName = null
+    humanName = null,
+    restVerbsEnabled = false,
   } = options;
-  const tools = listToolDefinitions();
+  const tools = listToolDefinitions().filter((tool) => {
+    if (restVerbsEnabled) {
+      return true;
+    }
+    return tool.id !== 'SLEEP' && tool.id !== 'EXIST';
+  });
 
   if (tools.length === 0) {
     return '';

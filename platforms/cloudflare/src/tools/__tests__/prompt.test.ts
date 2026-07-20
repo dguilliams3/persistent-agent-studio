@@ -13,6 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { buildPersonaSystemPrompt } from '../../prompts/persona-template';
 import { renderToolPromptBlocks } from '../prompt';
 
 describe('renderToolPromptBlocks', () => {
@@ -52,5 +53,15 @@ describe('renderToolPromptBlocks', () => {
   it('sanitizes an unsafe humanName into a safe token', () => {
     const block = renderToolPromptBlocks({ humanName: "Dr. Jane O'Brien" });
     expect(block).toContain('TOOL: MESSAGE_DR_JANE_O_BRIEN');
+  });
+
+  it('omits rest-verb tool definitions from the composed prompt when the flag is off', () => {
+    const composedPrompt =
+      buildPersonaSystemPrompt({ restVerbsEnabled: false }) +
+      '\n\n' +
+      renderToolPromptBlocks({ restVerbsEnabled: false });
+
+    expect(composedPrompt).not.toContain('TOOL: SLEEP');
+    expect(composedPrompt).not.toContain('TOOL: EXIST');
   });
 });
