@@ -47,6 +47,7 @@ import {
   InlineMemoryEditor,
 } from '../components/chat/MemoryEditTools';
 import { mergeThread, midpointTimestamp } from '../components/chat/mergeThread';
+import { isDemoBannerDismissed } from '../components/layout/DemoBanner';
 import { consumePendingEntryScroll } from '../components/cover/coverGate';
 import type {
   SyntheticMemoryRow,
@@ -872,8 +873,21 @@ export function ChatView() {
         {/* Timeline mode: the full history feed */}
         {chatViewMode === 'timeline' && <TimelineView history={history} />}
 
-        {/* Think trigger (below messages) */}
-        <div style={{ padding: '0 var(--spacing-lg)' }}>
+        {/* Think trigger (below messages). On demo phones the floating demo
+            chip hovers 92px above the bottom edge — exactly over this row at
+            full scroll, where it severed the divider into a stray "— — —"
+            fragment and covered the think-now tap target. The clearance
+            keeps the trigger fully above the chip; skipped once the chip is
+            dismissed. */}
+        <div
+          style={{
+            padding: '0 var(--spacing-lg)',
+            paddingBottom:
+              DEMO_MODE && isMobileViewport && !isDemoBannerDismissed()
+                ? '56px'
+                : undefined,
+          }}
+        >
           <ThinkTrigger
             state={thinkTriggerState}
             onThink={triggerThinkNow}

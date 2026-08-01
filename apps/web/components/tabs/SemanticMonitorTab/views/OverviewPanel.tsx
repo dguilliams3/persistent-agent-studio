@@ -29,6 +29,7 @@ import { Icon } from '../../../ui';
 import BasinMetricsCard from '../components/BasinMetricsCard';
 import { useSIMData } from '../hooks/useSIMData';
 import { formatRelativeTime } from '../utils/formatters';
+import { usePersonaName } from '../../../../hooks/usePersonaName';
 
 /**
  * @description Quick stats summary row showing key basin metrics at a glance
@@ -107,6 +108,20 @@ export function OverviewPanel({ autoRefresh = true }: OverviewPanelProps) {
     weeklyLoading,
     fetchWeeklyBasin,
   } = useSIMData();
+
+  const personaName = usePersonaName();
+
+  /**
+   * Human titles for the three voices — the machine type stays visible as
+   * muted subtext (the honest data-contract name, demoted not hidden).
+   * Persona-name-aware: titles follow the active persona, never a
+   * hardcoded name.
+   */
+  const voiceTitles: Record<string, string> = {
+    thought: `${personaName}'s thoughts`,
+    message_to_user: `${personaName}'s voice out`,
+    user_message: 'your voice in',
+  };
 
   // Auto-fetch on mount if enabled
   useEffect(() => {
@@ -221,7 +236,8 @@ export function OverviewPanel({ autoRefresh = true }: OverviewPanelProps) {
               : null;
             return (
               <div key={type} className="rounded border border-border-subtle bg-surface p-3 min-h-[44px]">
-                <div className="text-xs text-content-muted">{type}</div>
+                <div className="text-sm font-medium text-content-primary">{voiceTitles[type] ?? type}</div>
+                <div className="text-[10px] font-mono text-content-muted mb-1">{type}</div>
                 <div className="text-base font-semibold">{((v.meanDistance ?? v.mean ?? 0) as number).toFixed(3)} mean dist</div>
                 <div className="text-xs">{(v.sampleCount ?? v.count ?? '--') as unknown as string} samples</div>
                 <div
@@ -248,7 +264,7 @@ export function OverviewPanel({ autoRefresh = true }: OverviewPanelProps) {
               {weekly.map((bucket) => {
                 const maxRate = Math.max(...weekly.map((b) => b.outlierRate), 0.001);
                 const ratePct = Math.round(bucket.outlierRate * 100);
-                const barHeight = Math.max(4, Math.round((bucket.outlierRate / maxRate) * 64));
+                const barHeight = Math.max(6, Math.round((bucket.outlierRate / maxRate) * 64));
                 return (
                   <div
                     key={bucket.week}
@@ -256,9 +272,20 @@ export function OverviewPanel({ autoRefresh = true }: OverviewPanelProps) {
                     title={`${bucket.week} — outlier rate ${ratePct}%, mean dist ${bucket.meanDistFromGlobal}, n=${bucket.n}`}
                   >
                     <div className="text-[10px] text-content-secondary">{ratePct}%</div>
+                    {/* Inline token fill, NOT a Tailwind opacity-modifier class:
+                        bg-accent/70 silently compiles to nothing here (accent is
+                        a plain var() color — no alpha channel to modify), which
+                        rendered floating labels with invisible bars on phones.
+                        Guaranteed min height/width so nonzero weeks always read
+                        as bars at 390px. */}
                     <div
-                      className="w-full max-w-10 rounded-t bg-accent/70"
-                      style={{ height: `${barHeight}px` }}
+                      className="w-full max-w-10 rounded-t"
+                      style={{
+                        height: `${barHeight}px`,
+                        minHeight: '6px',
+                        minWidth: '12px',
+                        backgroundColor: 'var(--accent)',
+                      }}
                     />
                     <div className="text-[10px] text-content-muted truncate w-full text-center">
                       {bucket.week.slice(5)}

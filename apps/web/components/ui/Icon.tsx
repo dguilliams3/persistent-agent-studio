@@ -102,6 +102,14 @@ import {
   // Navigation icons
   ChevronLeft,
   History,
+  // Meter icons (MetersDisplay popover — MeterRow + TrendDisplay)
+  Telescope,
+  HeartHandshake,
+  Waves,
+  Sparkle,
+  TrendingUp,
+  TrendingDown,
+  ArrowDown,
 } from 'lucide-react';
 /**
  * @description Map of icon names to components. Only includes icons actually used.
@@ -187,6 +195,14 @@ const ICON_MAP = {
   // Navigation icons
   ChevronLeft,
   History,
+  // Meter icons (MetersDisplay popover — MeterRow + TrendDisplay)
+  Telescope,
+  HeartHandshake,
+  Waves,
+  Sparkle,
+  TrendingUp,
+  TrendingDown,
+  ArrowDown,
 };
 
 interface IconProps {

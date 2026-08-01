@@ -256,6 +256,17 @@ export function AppShell() {
     ? (laptopPanel || 'chat')
     : activeView;
 
+  /**
+   * Demo banner placement: on mobile/tablet views WITHOUT a composer
+   * (everything but chat) the floating chip sat on top of view content
+   * (it covered the SIM stats cards on phones), so those views dock it
+   * as an in-flow bar at the bottom of the content column — it reserves
+   * its own space, nothing renders beneath it. Chat keeps the floating
+   * chip above the composer; laptop keeps bottom-right (chat is always
+   * on screen there).
+   */
+  const dockDemoBanner = DEMO_MODE && !isLaptop && activeView !== 'chat';
+
   return (
     // Height comes from .app-shell-root (index.css): 100dvh with 100vh fallback.
     // Plain 100vh on mobile includes the area behind browser chrome, so the
@@ -271,8 +282,9 @@ export function AppShell() {
     }}>
       <GradientMesh intensity="low" />
 
-      {/* Observatory demo chip — only when no worker is configured */}
-      {DEMO_MODE && <DemoBanner />}
+      {/* Observatory demo chip — only when no worker is configured. Docked
+          views render it inside the content column instead (see below). */}
+      {DEMO_MODE && !dockDemoBanner && <DemoBanner />}
 
       {/* Icon Rail */}
       <div style={{
@@ -391,6 +403,11 @@ export function AppShell() {
             </>
           )}
         </div>
+
+        {/* Docked demo banner — in-flow bottom bar for composer-less views:
+            it reserves its own space in this flex column, so view content
+            (which scrolls internally) always ends above it. */}
+        {dockDemoBanner && <DemoBanner variant="docked" />}
       </div>
 
       {/* Lightbox — rendered outside layout for proper overlay.

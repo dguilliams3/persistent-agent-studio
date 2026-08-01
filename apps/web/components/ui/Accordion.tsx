@@ -146,8 +146,12 @@ export function Accordion({
           </span>
         )}
 
-        {/* Title */}
-        <span className="flex-1 text-content-primary font-medium text-sm">
+        {/* Title — min-w-0 lets this flex item shrink below its content's
+            min width, so nowrap+ellipsis titles (ActionGroup's drip-down
+            preview line) actually truncate with "…" instead of overflowing
+            the header and hard-clipping at the viewport edge (which also
+            shoved the count badge off-screen on phones). */}
+        <span className="flex-1 min-w-0 text-content-primary font-medium text-sm">
           {title}
         </span>
 

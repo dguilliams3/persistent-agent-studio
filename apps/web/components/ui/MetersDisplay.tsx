@@ -445,7 +445,13 @@ export function MetersDisplay({ meters, compact = false, showHistory = true, edi
       variant="card"
     >
       <div className="space-y-1 pt-2">
-        {Object.entries(METER_CONFIG).map(([name, config]) => (
+        {/* Read-only view shows only meters the payload actually tracks —
+            inventing a default "5" row for an absent meter would claim state
+            that was never measured. Editable mode keeps the full config so
+            every meter can be set. */}
+        {Object.entries(METER_CONFIG)
+          .filter(([name]) => editable || values[name] != null)
+          .map(([name, config]) => (
           <MeterRow
             key={name}
             name={name}
@@ -457,7 +463,7 @@ export function MetersDisplay({ meters, compact = false, showHistory = true, edi
             onValueChange={handleValueChange}
             isUpdating={isSaving}
           />
-        ))}
+          ))}
 
         {/* Save/Cancel buttons when in edit mode with changes */}
         {editable && (
