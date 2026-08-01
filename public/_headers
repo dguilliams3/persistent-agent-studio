@@ -1,0 +1,11 @@
+# Cloudflare Pages headers (copied into dist/ by Vite's publicDir).
+#
+# Everything under /assets/ is content-hashed by Vite (e.g. index-DnmMmUwd.js),
+# so a changed file always gets a new URL — safe to cache forever. Without this
+# override, Pages served hashed assets with `max-age=0, must-revalidate`
+# (MERGED_LEDGER row 21, RUN-20260731-1953).
+#
+# index.html, sw.js, and manifest.json keep the Pages default (revalidate) so
+# new builds land immediately.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

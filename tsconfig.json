@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@persistence/core": ["packages/core/src/index.ts"],
+      "@persistence/core/*": ["packages/core/src/*"],
+      "@persistence/db": ["packages/db/src/index.ts"],
+      "@persistence/db/*": ["packages/db/src/*"],
+      "@persistence/embedding": ["packages/embedding/src/index.ts"],
+      "@persistence/embedding/*": ["packages/embedding/src/*"],
+      "@persistence/tools": ["packages/tools/src/index.ts"],
+      "@persistence/tools/*": ["packages/tools/src/*"],
+      "@persistence/llm": ["packages/llm/src/index.ts"],
+      "@persistence/llm/*": ["packages/llm/src/*"],
+      "@persistence/runtime": ["packages/runtime/src/index.ts"],
+      "@persistence/runtime/*": ["packages/runtime/src/*"],
+      "@persistence/memory": ["packages/memory/src/index.ts"],
+      "@persistence/memory/*": ["packages/memory/src/*"],
+      "@persistence/services": ["packages/services/src/index.ts"],
+      "@persistence/services/*": ["packages/services/src/*"],
+      "@persistence/media": ["packages/media/src/index.ts"],
+      "@persistence/media/*": ["packages/media/src/*"],
+      "@persistence/ui": ["packages/ui/src/index.ts"],
+      "@persistence/ui/*": ["packages/ui/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*", "platforms/*/src/**/*", "apps/**/*"],
+  "exclude": ["node_modules", "dist", ".wrangler"]
+}

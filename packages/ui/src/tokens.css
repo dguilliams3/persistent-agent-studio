@@ -1,0 +1,116 @@
+/**
+ * @module tokens.css
+ * @description Design tokens for the persistence platform UI.
+ *
+ * Palette: "warm charcoal" per RUN-20260704-1520 (user-approved 2026-07-04),
+ * replacing the original steel-blue "breathing dark" (RUN-20260320-1900).
+ * Design rules:
+ *   - Warm neutrals read as material, not haze: charcoal/stone, not blue-gray.
+ *   - Real value ladder: background → surface → raised must visibly step.
+ *   - Terracotta accent is reserved for INTERACTIVE elements ("if it's
+ *     terracotta, you can click it") with real hover/active states.
+ *   - Meters keep their vivid personality colors; purple lives only there.
+ *
+ * Apps import these shared tokens directly from the UI package.
+ *
+ * @antipattern Do NOT use raw hex colors in components — always reference tokens.
+ * @antipattern Do NOT add platform-specific values here.
+ * @antipattern Do NOT put the accent color on non-interactive chrome — it is
+ *   the "clickable" signal and dilutes if decorative.
+ *
+ * @upstream Consumed by: apps/web/index.css
+ * @downstream Defines: CSS custom properties consumed by all shared components
+ */
+
+:root {
+  /* =========================================================================
+     SURFACE COLORS — elevation hierarchy
+     Warm charcoal: deep warm base, visibly stepped surfaces
+     ========================================================================= */
+  --background: #1d1a17;
+  --surface: #282420;
+  --surface-raised: #332e28;
+
+  /* =========================================================================
+     ACCENT COLORS — terracotta, interactive-only
+     ========================================================================= */
+  --accent: #d97757;
+  --accent-hover: #e08a6d;
+  --accent-active: #c4653f;
+  --accent-soft: rgba(217, 119, 87, 0.13);
+  /* Legacy alias (pre-2026-07-04 components reference it): */
+  --accent-light: #e08a6d;
+
+  /* =========================================================================
+     TEXT COLORS — warm cream ladder, AA-passing on --background
+     ========================================================================= */
+  --text-primary: #f2ede4;
+  --text-secondary: #b3a99a;
+  --text-muted: #8a8072;
+
+  /* =========================================================================
+     BORDER COLORS — separators that actually delineate
+     ========================================================================= */
+  --border: #3f3931;
+  --border-subtle: #2e2925;
+
+  /* =========================================================================
+     CHAT BUBBLE COLORS
+     ========================================================================= */
+  --user-bubble: var(--accent);
+  --persona-bubble: var(--surface);
+
+  /* =========================================================================
+     METER COLORS — one per meter, used in expandable thinking + meter pills
+     Core meters (user-set via /meter):
+     ========================================================================= */
+  --meter-aliveness: #e07850;
+  --meter-curiosity: #50a8e0;
+  --meter-connection: #a070d0;
+  --meter-ease: #e0a850;
+  --meter-delight: #e070a0;
+
+  /* Involuntary meters (system-derived): */
+  --meter-anxiety: #e05870;
+  --meter-activity: #50c080;
+
+  /* Legacy aliases for backward compat in ExpandedThinking: */
+  --meter-nuance: var(--meter-connection);
+  --meter-engagement: var(--meter-activity);
+
+  /* =========================================================================
+     SCRIM — overlay backdrop for modals, rails, badges
+     ========================================================================= */
+  --scrim: rgba(0, 0, 0, 0.4);
+  --scrim-heavy: rgba(0, 0, 0, 0.6);
+
+  /* =========================================================================
+     SEMANTIC COLORS — warm-shifted to sit naturally on charcoal
+     ========================================================================= */
+  --success: #5fb37a;
+  --warning: #d9a13f;
+  --danger: #d95757;
+
+  /* =========================================================================
+     SPACING SCALE (rem-based)
+     ========================================================================= */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.5rem;
+
+  /* =========================================================================
+     BORDER RADIUS
+     ========================================================================= */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* =========================================================================
+     TRANSITIONS — 200ms default per SPEC_v1
+     ========================================================================= */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+}

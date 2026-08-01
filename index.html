@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      Neutral by default: the reference persona is only an example, so nothing
+      static may name it. apps/web/hooks/usePersonaName.ts upgrades this to
+      "<persona> - Neural Observatory" once the app knows who lives here.
+    -->
+    <title>Persistent Agent Studio</title>
+    <meta
+      name="description"
+      content="A Claude persona that persists: durable identity, layered memory, an autonomous think-loop on Cloudflare, and a live observatory that measures identity drift over time."
+    />
+
+    <!-- Link previews (Open Graph / Twitter) -->
+    <meta property="og:title" content="Persistent Agent Studio" />
+    <meta
+      property="og:description"
+      content="A Claude persona that persists: durable identity, layered memory, an autonomous think-loop on Cloudflare, and a live observatory that measures identity drift over time."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://persistent-agent-studio-demo.pages.dev/" />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- PWA Meta Tags -->
+    <!-- Matches --background in packages/ui/src/tokens.css (warm charcoal) -->
+    <meta name="theme-color" content="#1d1a17" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Neural Observatory" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <!--
+      Fonts (Instrument Serif display, Outfit body, JetBrains Mono code) are
+      self-hosted via @fontsource imports in apps/web/index.css — bundled,
+      content-hashed, no runtime Google Fonts fetch (RUN-20260731-1953).
+    -->
+  </head>
+  <body>
+    <noscript>
+      <div style="max-width: 36rem; margin: 4rem auto; padding: 0 1.5rem; text-align: center; font-family: Georgia, serif; color: #f2ede4; background: #1d1a17;">
+        <h1 style="font-size: 1.5rem; font-weight: 400;">Persistent Agent Studio</h1>
+        <p>This observatory is a JavaScript application and can't run with JavaScript disabled.</p>
+        <p>
+          The no-JS alternative is the source itself:
+          <a href="https://github.com/dguilliams3/persistent-agent-studio" style="color: #d97757;">github.com/dguilliams3/persistent-agent-studio</a>
+        </p>
+      </div>
+    </noscript>
+    <div id="root"></div>
+    <script type="module" src="/apps/web/main.tsx"></script>
+  </body>
+</html>
