@@ -31,6 +31,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { DEMO_MODE } from '../../../api/client';
 import { Icon } from '../../ui';
 import { formatTime } from '../../ui/historyUtils';
 import { useSIMData } from './hooks/useSIMData';
@@ -56,7 +57,7 @@ import './SemanticMonitorTab.css';
  * - correlation: Self-reported states vs embeddings (Phase 3 placeholder)
  * - memory-lab: Synthetic memory injection for identity experimentation
  */
-const VIEWS = [
+const ALL_VIEWS = [
   { id: 'overview', label: 'Overview', icon: 'BarChart3' },
   { id: 'trajectory', label: 'Trajectory', icon: 'TrendingUp' },
   { id: 'directionality', label: 'Directionality', icon: 'Compass' },
@@ -65,6 +66,18 @@ const VIEWS = [
   { id: 'export', label: 'Export', icon: 'Download' },
   { id: 'memory-lab', label: 'Memory Lab', icon: 'FlaskConical' },
 ];
+
+/**
+ * Views whose core action needs live embeddings the static exhibit does not
+ * have: Directionality's compute would return scripted projections and Axes
+ * can never hold user-created content. A panel that cannot do its real work
+ * does not appear in the demo.
+ */
+const DEMO_HIDDEN_VIEW_IDS = new Set(['directionality', 'axes']);
+
+const VIEWS = DEMO_MODE
+  ? ALL_VIEWS.filter((view) => !DEMO_HIDDEN_VIEW_IDS.has(view.id))
+  : ALL_VIEWS;
 
 /**
  * @description Main Semantic Identity Monitor tab component
